@@ -1,45 +1,245 @@
 ﻿@page "/adminPanel"
 @rendermode InteractiveServer
+
 @inject IArticleService articleService
+
 @using SchoolNewspaperBlazorApp.Components.Components
 @using SchoolNewspaperBlazorApp.Data
 @using SchoolNewspaperBlazorApp.Interfaces.Service
 
-<div class="main-block">
-    <div class="admin-toolbar">
-        @if (view == 0)
-        {
-            <button class="btn btn-primary" @onclick="LoadArticleAsync">📋 Panel artykułów</button>
-            <button class="btn btn-primary" @onclick="() => SetView(2)">➕ Dodaj artykuł</button>
-        }
-        else
-        {
-            <button class="btn btn-outline-primary" @onclick="() => SetView(0)">← Wróć</button>
-        }
-    </div>
+<div class="admin-page">
 
-    @if (view == 1)
-    {
-        <div class="article-panel">
-            <ArticleCard Articles="articleList" permissions="true" />
+    <section class="admin-header">
+        <div class="admin-header__content">
+            <span class="admin-header__eyebrow">
+                ETI / STREFA ZARZĄDZANIA
+            </span>
+
+            <h1>Panel administratora</h1>
+
+            <p>
+                Zarządzaj publikacjami i użytkownikami gazetki szkolnej
+                w jednym miejscu.
+            </p>
+
+            <div class="admin-header__status">
+                <span class="site-status__dot"></span>
+                Centrum zarządzania gazetką
+            </div>
         </div>
-    }
-    else if (view == 2)
+
+        <div class="admin-header__emblem" aria-hidden="true">
+            <img src="/logo.png" alt="" />
+        </div>
+    </section>
+
+    @if (view == 0)
     {
-        <ArticleForm />
+        <div class="admin-section-heading">
+            <div>
+                <span class="admin-section-heading__eyebrow">
+                    MENU GŁÓWNE
+                </span>
+                <h2>Co chcesz zrobić?</h2>
+                <p>Wybierz jedną z dostępnych funkcji panelu.</p>
+            </div>
+        </div>
+
+        <div class="admin-actions">
+
+            <button type="button"
+                    class="admin-action"
+                    @onclick="LoadArticleAsync">
+
+                <span class="admin-action__icon">▤</span>
+
+                <span class="admin-action__number">01</span>
+
+                <strong>Panel artykułów</strong>
+
+                <span class="admin-action__description">
+                    Przeglądaj publikacje i zarządzaj istniejącymi artykułami.
+                </span>
+
+                <span class="admin-action__footer">
+                    Otwórz artykuły <span>→</span>
+                </span>
+            </button>
+
+            <button type="button"
+                    class="admin-action"
+                    @onclick="() => SetView(2)">
+
+                <span class="admin-action__icon">✎</span>
+
+                <span class="admin-action__number">02</span>
+
+                <strong>Dodaj artykuł</strong>
+
+                <span class="admin-action__description">
+                    Przygotuj nową publikację i dodaj ją do gazetki szkolnej.
+                </span>
+
+                <span class="admin-action__footer">
+                    Utwórz artykuł <span>→</span>
+                </span>
+            </button>
+
+            <button type="button"
+                    class="admin-action"
+                    @onclick="() => SetView(3)">
+
+                <span class="admin-action__icon">♙</span>
+
+                <span class="admin-action__number">03</span>
+
+                <strong>Dodaj użytkownika</strong>
+
+                <span class="admin-action__description">
+                    Dodaj konto użytkownika do systemu gazetki.
+                </span>
+
+                <span class="admin-action__footer">
+                    Dodaj konto <span>→</span>
+                </span>
+            </button>
+
+        </div>
+
+        <section class="admin-section">
+            <div class="admin-section__title-row">
+                <span class="admin-section__symbol">✦</span>
+                <div>
+                    <h2>Witaj w centrum zarządzania</h2>
+                    <p>
+                        Wybierz odpowiednią kartę powyżej, aby rozpocząć pracę.
+                    </p>
+                </div>
+            </div>
+        </section>
     }
+    else
+    {
+        <div class="admin-back-row">
+            <button type="button"
+                    class="admin-back-button"
+                    @onclick="() => SetView(0)">
+                <span>←</span> Wróć do panelu
+            </button>
+
+            <div class="admin-current-view">
+                <span class="site-status__dot"></span>
+
+                @if (view == 1)
+                {
+                    <span>Zarządzanie artykułami</span>
+                }
+                else if (view == 2)
+                {
+                    <span>Tworzenie artykułu</span>
+                }
+                else if (view == 3)
+                {
+                    <span>Dodawanie użytkownika</span>
+                }
+            </div>
+        </div>
+
+        @if (view == 1)
+        {
+            <section class="admin-content-panel">
+                <div class="admin-content-panel__header">
+                    <div>
+                        <span class="admin-section-heading__eyebrow">
+                            PUBLIKACJE
+                        </span>
+                        <h2>Panel artykułów</h2>
+                        <p>Zarządzaj artykułami opublikowanymi w gazetce.</p>
+                    </div>
+
+                    <button type="button"
+                            class="admin-small-button"
+                            @onclick="() => SetView(2)">
+                        + Dodaj artykuł
+                    </button>
+                </div>
+
+                @if (articleList.Count == 0)
+                {
+                    <div class="admin-empty-state">
+                        <span class="admin-empty-state__icon">▤</span>
+                        <h3>Brak artykułów</h3>
+                        <p>
+                            Nie znaleziono publikacji. Możesz dodać pierwszy
+                            artykuł do gazetki.
+                        </p>
+
+                        <button type="button"
+                                class="admin-small-button"
+                                @onclick="() => SetView(2)">
+                            Dodaj pierwszy artykuł
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="article-panel">
+                        <ArticleCard Articles="articleList"
+                                     permissions="true" />
+                    </div>
+                }
+            </section>
+        }
+        else if (view == 2)
+        {
+            <section class="admin-content-panel">
+                <div class="admin-content-panel__header">
+                    <div>
+                        <span class="admin-section-heading__eyebrow">
+                            NOWA PUBLIKACJA
+                        </span>
+                        <h2>Dodaj artykuł</h2>
+                        <p>Uzupełnij formularz, aby przygotować publikację.</p>
+                    </div>
+                </div>
+
+                <div class="admin-form-wrapper">
+                    <ArticleForm />
+                </div>
+            </section>
+        }
+        else if (view == 3)
+        {
+            <section class="admin-content-panel">
+                <div class="admin-content-panel__header">
+                    <div>
+                        <span class="admin-section-heading__eyebrow">
+                            KONTA
+                        </span>
+                        <h2>Dodaj użytkownika</h2>
+                        <p>Utwórz nowe konto w systemie gazetki.</p>
+                    </div>
+                </div>
+
+                <div class="admin-form-wrapper">
+                    <AddUserForm />
+                </div>
+            </section>
+        }
+    }
+
 </div>
 
-
 @code {
-
     public int view = 0;
-    public List<Article> articleList = new List<Article>();
 
-    public void SetView(int view)
+    public List<Article> articleList = new();
+
+    public void SetView(int selectedView)
     {
-        this.view = view;
+        view = selectedView;
     }
+
     public async Task LoadArticleAsync()
     {
         articleList = await articleService.GetAllArticlesAsync();

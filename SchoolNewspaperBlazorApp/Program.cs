@@ -7,6 +7,7 @@ using SchoolNewspaperBlazorApp.Interfaces.Repository;
 using SchoolNewspaperBlazorApp.Interfaces.Service;
 using SchoolNewspaperBlazorApp.Repository;
 using SchoolNewspaperBlazorApp.Service;
+using static SchoolNewspaperBlazorApp.Interfaces.Repository.AuthRepository;
 
 namespace SchoolNewspaperBlazorApp
 {
@@ -29,6 +30,13 @@ namespace SchoolNewspaperBlazorApp
             builder.Services.AddScoped<IArticleService, ArticleService>();
             builder.Services.AddScoped<IFileService, FileService>();
 
+            builder.Services.AddScoped<IAuthRepository, Repository.AuthRepository>();
+            builder.Services.AddScoped<IAuthService, AuthService>();
+
+            builder.Services.AddScoped<
+            SchoolNewspaperBlazorApp.Interfaces.Service.IAuthService,
+            SchoolNewspaperBlazorApp.Service.AuthService>();
+
             var app = builder.Build();
 
             // Configure the HTTP request pipeline.
@@ -43,7 +51,7 @@ namespace SchoolNewspaperBlazorApp
             app.UseStaticFiles(new StaticFileOptions
             {
                 FileProvider = new PhysicalFileProvider
-                (@"C:\Users\Praktyka\source\repos\SchoolNewspaperBlazorApp\Images"),
+                (@"C:\Users\!Uczen2026\source\repos\SchoolNewspaperBlazorApp\Images"),
                 RequestPath = "/Images"
             });
 

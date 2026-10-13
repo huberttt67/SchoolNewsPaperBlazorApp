@@ -1,36 +1,103 @@
 ﻿@inherits LayoutComponentBase
 
-<nav class="navbar navbar-expand-lg bg-dark navbar-dark shadow">
-    <div class="container">
+<div class="site-shell">
+    <header class="site-header">
+        <div class="site-header__inner">
 
-        <a class="navbar-brand fw-bold fs-4" href="/">
-            📰 Gazetka szkolna
-        </a>
+            <a class="brand" href="/" aria-label="Gazetka szkolna ETI">
+                <span class="brand__logo-wrap">
+                    <img src="/logo.png"
+                         class="brand__logo"
+                         alt="Logo ETI" />
+                </span>
 
-        <div class="navbar-nav ms-4">
-            <NavLink class="nav-link" href="/" Match="NavLinkMatch.All">Strona główna</NavLink>
-            <NavLink class="nav-link" href="/aktualnosci">Aktualności</NavLink>
-            <NavLink class="nav-link" href="/wydarzenia">Wydarzenia</NavLink>
-            <NavLink class="nav-link" href="/kontakt">Kontakt</NavLink>
-            <NavLink class="nav-link" href="/adminPanel">Admin Panel</NavLink>
+                <span class="brand__text">
+                    <span class="brand__name">GAZETKA SZKOLNA</span>
+                    <span class="brand__subtitle">
+                        Elitarne Technikum Informatyczne
+                    </span>
+                </span>
+            </a>
+
+            <nav class="main-nav" aria-label="Menu główne">
+                <NavLink class="main-nav__link"
+                         href="/"
+                         Match="NavLinkMatch.All">
+                    <span class="nav-icon">⌂</span>
+                    Strona główna
+                </NavLink>
+
+                <NavLink class="main-nav__link" href="/aktualnosci">
+                    <span class="nav-icon">▤</span>
+                    Aktualności
+                </NavLink>
+
+                <NavLink class="main-nav__link" href="/wydarzenia">
+                    <span class="nav-icon">▦</span>
+                    Wydarzenia
+                </NavLink>
+            </nav>
+
+            <div class="site-header__actions">
+                <NavLink class="header-login" href="/login">
+                    <span>♙</span>
+                    Zaloguj się
+                </NavLink>
+            </div>
+
         </div>
 
-        <form class="btn btn-search" role="search">
-            <input class="form-control me-2"
-                   type="search"
-                   placeholder="Szukaj..."
-                   aria-label="Szukaj" />
+        <div class="site-header__bottom">
+            <div class="site-header__bottom-inner">
+                <div class="site-status">
+                    <span class="site-status__dot"></span>
+                    <span>Twoje szkolne centrum informacji</span>
+                </div>
 
-            <button class="btn" type="submit">
-                Szukaj
-            </button>
-        </form>
+                <NavLink class="admin-link" href="/adminPanel">
+                    <span class="admin-link__icon">⚙</span>
+                    Panel administratora
+                    <span>↗</span>
+                </NavLink>
+            </div>
+        </div>
+    </header>
 
-    </div>
-</nav>
+    <main class="site-main">
+        @Body
+    </main>
 
-<main class="container py-4">
-    @Body
-</main>
+    <footer class="site-footer">
+        <div class="site-footer__inner">
 
+            <div class="site-footer__brand">
+                <img src="/logo.png"
+                     class="site-footer__logo"
+                     alt="Logo ETI" />
 
+                <div>
+                    <strong>Gazetka szkolna ETI</strong>
+                    <p>Szkolne wiadomości. Nasze historie.</p>
+                </div>
+            </div>
+
+            <nav class="site-footer__links" aria-label="Linki w stopce">
+                <NavLink href="/" Match="NavLinkMatch.All">
+                    Strona główna
+                </NavLink>
+                <NavLink href="/aktualnosci">Aktualności</NavLink>
+                <NavLink href="/wydarzenia">Wydarzenia</NavLink>
+                <a href="https://technikuminformatyczne.edu.pl/"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Strona szkoły ↗
+                </a>
+            </nav>
+
+            <span class="site-footer__copyright">
+                © @DateTime.Now.Year ETI
+            </span>
+
+        </div>
+    </footer>
+</div>

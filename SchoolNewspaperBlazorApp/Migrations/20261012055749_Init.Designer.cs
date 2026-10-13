@@ -12,8 +12,8 @@ using SchoolNewspaperBlazorApp.Data;
 namespace SchoolNewspaperBlazorApp.Migrations
 {
     [DbContext(typeof(NewspaperDbContext))]
-    [Migration("20261008104153_fix#1")]
-    partial class fix1
+    [Migration("20261012055749_Init")]
+    partial class Init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

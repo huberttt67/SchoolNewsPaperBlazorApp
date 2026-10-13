@@ -2,14 +2,38 @@
 @using SchoolNewspaperBlazorApp.Components.Components
 @using SchoolNewspaperBlazorApp.Data
 @using SchoolNewspaperBlazorApp.Interfaces.Service
-@inject IArticleService articleService;
+@inject IArticleService articleService
 
-<ArticleCard Articles="articles" permissions="false"/>
+<PageTitle>Gazetka ETI</PageTitle>
 
+<section class="home-hero">
+    <span class="home-hero__eyebrow">Szkolny portal informacyjny</span>
 
-@code 
+    <h1>Wszystko, co dzieje się w naszej szkole.</h1>
+
+    <p>
+        Aktualności, wydarzenia i ogłoszenia z życia technikum – w jednym miejscu,
+        tworzone przez uczniów.
+    </p>
+
+    <a href="#aktualnosci" class="home-hero__button">
+        Czytaj aktualności <span aria-hidden="true">→</span>
+    </a>
+</section>
+
+<div class="section-heading" id="aktualnosci">
+    <div>
+        <h2>Najnowsze artykuły</h2>
+        <p>Świeże wiadomości od redakcji gazetki.</p>
+    </div>
+</div>
+
+<ArticleCard Articles="articles" permissions="false" />
+
+@code
 {
     public List<Article> articles = new List<Article>();
+
     protected override async Task OnInitializedAsync()
     {
         articles = await articleService.GetAllArticlesAsync();

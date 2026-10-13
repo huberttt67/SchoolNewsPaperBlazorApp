@@ -14,6 +14,9 @@ namespace SchoolNewspaperBlazorApp.Data
                 .Property(x => x.Id)
                 .ValueGeneratedNever();
         }
+        public DbSet<User> Users => Set<User>();
+
+        public object User { get; internal set; }
     }
 
 }
