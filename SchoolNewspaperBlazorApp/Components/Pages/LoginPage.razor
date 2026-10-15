@@ -1,14 +1,14 @@
 ﻿@page "/login"
 @rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.WebUtilities
 @using SchoolNewspaperBlazorApp.Interfaces.Service
 
-@inject IAuthService authService
+@inject NavigationManager Navigation
 
 <PageTitle>Logowanie | Gazetka ETI</PageTitle>
 
 <div class="login-page">
-
-    <!-- Lewa strona: marka i opis -->
     <aside class="login-side">
         <div class="login-side__brand">
             <span class="login-side__logo-wrap">
@@ -16,8 +16,12 @@
             </span>
 
             <div>
-                <div class="login-side__name">GAZETKA <span>ETI</span></div>
-                <div class="login-side__tagline">Szkolny portal informacyjny</div>
+                <div class="login-side__name">
+                    GAZETKA <span>ETI</span>
+                </div>
+                <div class="login-side__tagline">
+                    Szkolny portal informacyjny
+                </div>
             </div>
         </div>
 
@@ -39,6 +43,7 @@
                         <span>Dodawaj i edytuj aktualności ze zdjęciami.</span>
                     </div>
                 </li>
+
                 <li class="login-feature">
                     <span class="login-feature__icon" aria-hidden="true">👥</span>
                     <div>
@@ -46,6 +51,7 @@
                         <span>Zarządzaj dostępem członków redakcji.</span>
                     </div>
                 </li>
+
                 <li class="login-feature">
                     <span class="login-feature__icon" aria-hidden="true">📢</span>
                     <div>
@@ -61,10 +67,10 @@
         </div>
     </aside>
 
-    <!-- Prawa strona: formularz -->
     <main class="login-panel">
         <a href="/" class="login-back">
-            <span aria-hidden="true">←</span> Wróć na stronę główną
+            <span aria-hidden="true">←</span>
+            Wróć na stronę główną
         </a>
 
         <div class="login-card">
@@ -73,7 +79,7 @@
                 <p>Zaloguj się, aby przejść do panelu.</p>
             </div>
 
-            <form @onsubmit="HandleLoginAsync" @onsubmit:preventDefault>
+            <form action="/auth/login" method="post">
                 <div class="login-field">
                     <label for="login-email">Email</label>
 
@@ -84,14 +90,14 @@
                                       stroke="currentColor" stroke-width="1.7" />
                                 <path d="m4 7 8 6 8-6"
                                       stroke="currentColor" stroke-width="1.7"
-                                      stroke-linecap="round" stroke-linejoin="round" />
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round" />
                             </svg>
                         </span>
 
                         <input id="login-email"
+                               name="Email"
                                type="email"
-                               @bind="Login"
-                               @bind:event="oninput"
                                class="login-input"
                                placeholder="np. uczen@szkola.pl"
                                autocomplete="username"
@@ -110,14 +116,14 @@
                                 <path d="M8 10V7a4 4 0 0 1 8 0v3"
                                       stroke="currentColor" stroke-width="1.7"
                                       stroke-linecap="round" />
-                                <circle cx="12" cy="15" r="1.3" fill="currentColor" />
+                                <circle cx="12" cy="15" r="1.3"
+                                        fill="currentColor" />
                             </svg>
                         </span>
 
                         <input id="login-password"
+                               name="Password"
                                type="password"
-                               @bind="Password"
-                               @bind:event="oninput"
                                class="login-input"
                                placeholder="Wpisz swoje hasło"
                                autocomplete="current-password"
@@ -125,60 +131,39 @@
                     </div>
                 </div>
 
-                @if (!string.IsNullOrEmpty(errorMessage))
+                @if (hasLoginError)
                 {
-                    <div class="login-error" role="alert">@errorMessage</div>
+                    <div class="login-error" role="alert">
+                        Błędny email lub hasło albo konto nie istnieje.
+                    </div>
                 }
 
-                <button type="submit" class="login-button" disabled="@isBusy">
-                    @(isBusy ? "Logowanie…" : "Zaloguj się")
+                <button type="submit" class="login-button">
+                    Zaloguj się
                     <span aria-hidden="true">→</span>
                 </button>
             </form>
 
             <div class="login-footer">
                 <span class="login-footer-line"></span>
-                <p>Problem z logowaniem? Skontaktuj się z opiekunem gazetki.</p>
+                <p>
+                    Problem z logowaniem? Skontaktuj się z opiekunem gazetki.
+                </p>
             </div>
         </div>
     </main>
 </div>
 
 @code {
-    public string Login { get; set; } = string.Empty;
-    public string Password { get; set; } = string.Empty;
+    private bool hasLoginError;
 
-    private bool isBusy;
-    private string? errorMessage;
-
-    private async Task HandleLoginAsync()
+    protected override void OnInitialized()
     {
-        if (isBusy) return;
+        var uri = new Uri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
 
-        if (string.IsNullOrWhiteSpace(Login) || string.IsNullOrWhiteSpace(Password))
-        {
-            errorMessage = "Wpisz email i hasło.";
-            return;
-        }
-
-        isBusy = true;
-        errorMessage = null;
-
-        try
-        {
-            // TODO: wywołaj metodę z IAuthService, np.:
-            // var ok = await authService.LoginAsync(Login, Password);
-            // if (!ok) { errorMessage = "Nieprawidłowy email lub hasło."; return; }
-            // Navigation.NavigateTo("/adminPanel");
-            await Task.CompletedTask;
-        }
-        catch
-        {
-            errorMessage = "Nie udało się zalogować. Spróbuj ponownie.";
-        }
-        finally
-        {
-            isBusy = false;
-        }
+        hasLoginError =
+            query.TryGetValue("error", out var error) &&
+            error.ToString() == "1";
     }
 }

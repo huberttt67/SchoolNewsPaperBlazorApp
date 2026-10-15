@@ -1,11 +1,17 @@
 ﻿@page "/adminPanel"
 @rendermode InteractiveServer
 
-@inject IArticleService articleService
-
+@using Microsoft.AspNetCore.Authorization
 @using SchoolNewspaperBlazorApp.Components.Components
 @using SchoolNewspaperBlazorApp.Data
 @using SchoolNewspaperBlazorApp.Interfaces.Service
+
+@attribute [Authorize]
+
+@inject IArticleService articleService
+@inject NavigationManager Navigation
+
+<PageTitle>Panel administratora | Gazetka ETI</PageTitle>
 
 <div class="admin-page">
 
@@ -26,6 +32,12 @@
                 <span class="site-status__dot"></span>
                 Centrum zarządzania gazetką
             </div>
+
+            <form action="/auth/logout" method="post">
+                <button type="submit" class="admin-small-button">
+                    Wyloguj się
+                </button>
+            </form>
         </div>
 
         <div class="admin-header__emblem" aria-hidden="true">
@@ -52,15 +64,11 @@
                     @onclick="LoadArticleAsync">
 
                 <span class="admin-action__icon">▤</span>
-
                 <span class="admin-action__number">01</span>
-
                 <strong>Panel artykułów</strong>
-
                 <span class="admin-action__description">
                     Przeglądaj publikacje i zarządzaj istniejącymi artykułami.
                 </span>
-
                 <span class="admin-action__footer">
                     Otwórz artykuły <span>→</span>
                 </span>
@@ -71,15 +79,11 @@
                     @onclick="() => SetView(2)">
 
                 <span class="admin-action__icon">✎</span>
-
                 <span class="admin-action__number">02</span>
-
                 <strong>Dodaj artykuł</strong>
-
                 <span class="admin-action__description">
                     Przygotuj nową publikację i dodaj ją do gazetki szkolnej.
                 </span>
-
                 <span class="admin-action__footer">
                     Utwórz artykuł <span>→</span>
                 </span>
@@ -90,15 +94,11 @@
                     @onclick="() => SetView(3)">
 
                 <span class="admin-action__icon">♙</span>
-
                 <span class="admin-action__number">03</span>
-
                 <strong>Dodaj użytkownika</strong>
-
                 <span class="admin-action__description">
                     Dodaj konto użytkownika do systemu gazetki.
                 </span>
-
                 <span class="admin-action__footer">
                     Dodaj konto <span>→</span>
                 </span>
@@ -154,7 +154,9 @@
                             PUBLIKACJE
                         </span>
                         <h2>Panel artykułów</h2>
-                        <p>Zarządzaj artykułami opublikowanymi w gazetce.</p>
+                        <p>
+                            Zarządzaj artykułami opublikowanymi w gazetce.
+                        </p>
                     </div>
 
                     <button type="button"
@@ -199,7 +201,9 @@
                             NOWA PUBLIKACJA
                         </span>
                         <h2>Dodaj artykuł</h2>
-                        <p>Uzupełnij formularz, aby przygotować publikację.</p>
+                        <p>
+                            Uzupełnij formularz, aby przygotować publikację.
+                        </p>
                     </div>
                 </div>
 
@@ -242,7 +246,15 @@
 
     public async Task LoadArticleAsync()
     {
-        articleList = await articleService.GetAllArticlesAsync();
-        SetView(1);
+        try
+        {
+            articleList = await articleService.GetAllArticlesAsync();
+            SetView(1);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd pobierania artykułów: {ex}");
+        }
     }
 }
