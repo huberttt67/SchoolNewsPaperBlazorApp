@@ -1,0 +1,163 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="SchoolNewspaperBlazorApp.styles.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet />
+</head>
+
+<body>
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+    @((MarkupString)ToastScript)
+</body>
+
+</html>
+
+@code {
+    // Skrypt powiadomień (toastów). Wstawiany jako surowy HTML,
+    // bo Razor nie pozwala na zwykłe <script> w komponentach.
+    private const string ToastScript = @"<script>
+(function () {
+    if (window.__toastInit) { return; }
+    window.__toastInit = true;
+
+    var ICONS = { success: '✓', error: '!', warning: '!', info: 'i' };
+    var MAX_VISIBLE = 3;
+
+    function getContainer() {
+        var c = document.getElementById('eti-toast-container');
+        if (!c) {
+            c = document.createElement('div');
+            c.id = 'eti-toast-container';
+            c.className = 'eti-toast-container';
+            c.setAttribute('data-permanent', '');
+            c.setAttribute('aria-live', 'polite');
+            document.body.appendChild(c);
+        }
+        return c;
+    }
+
+    var visibleCount = 0;
+    var waiting = [];
+
+    function displayToast(item) {
+        var message = item.message;
+        var type = item.type;
+        var duration = item.duration;
+
+        var container = getContainer();
+
+        var toast = document.createElement('div');
+        toast.className = 'eti-toast eti-toast--' + type;
+        toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+
+        var icon = document.createElement('span');
+        icon.className = 'eti-toast__icon';
+        icon.textContent = ICONS[type];
+
+        var text = document.createElement('span');
+        text.className = 'eti-toast__text';
+        text.textContent = message;
+
+        var close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'eti-toast__close';
+        close.setAttribute('aria-label', 'Zamknij powiadomienie');
+        close.textContent = '×';
+
+        var bar = document.createElement('span');
+        bar.className = 'eti-toast__bar';
+        bar.style.animationDuration = duration + 'ms';
+
+        toast.appendChild(icon);
+        toast.appendChild(text);
+        toast.appendChild(close);
+        toast.appendChild(bar);
+        container.appendChild(toast);
+
+        visibleCount++;
+
+        var timer = null;
+        var closing = false;
+
+        function remove() {
+            if (closing) { return; }
+            closing = true;
+
+            if (timer) { clearTimeout(timer); timer = null; }
+
+            toast.classList.add('eti-toast--hide');
+
+            setTimeout(function () {
+                if (toast.parentNode) { toast.parentNode.removeChild(toast); }
+                visibleCount--;
+                showNext();
+            }, 300);
+        }
+
+        close.addEventListener('click', remove);
+        timer = setTimeout(remove, duration);
+    }
+
+    // Pokazuje kolejne powiadomienia z kolejki, dopóki jest wolne miejsce.
+    function showNext() {
+        while (visibleCount < MAX_VISIBLE && waiting.length > 0) {
+            displayToast(waiting.shift());
+        }
+    }
+
+    window.showToast = function (message, type, duration) {
+        if (!message) { return; }
+
+        type = ICONS[type] ? type : 'info';
+        duration = duration || (type === 'error' ? 5500 : 3800);
+
+        waiting.push({ message: message, type: type, duration: duration });
+        showNext();
+    };
+
+    var TOAST_MESSAGES = {
+        login: { text: 'Zalogowano pomyślnie.', type: 'success' },
+        logout: { text: 'Wylogowano pomyślnie.', type: 'info' }
+    };
+
+    function handleQuery() {
+        var params = new URLSearchParams(window.location.search);
+        var key = params.get('toast');
+        var hasError = params.has('error');
+
+        if (!key && !hasError) { return; }
+
+        if (hasError) {
+            window.showToast('Niepoprawny email lub hasło.', 'error');
+        } else if (TOAST_MESSAGES[key]) {
+            window.showToast(TOAST_MESSAGES[key].text, TOAST_MESSAGES[key].type);
+        }
+
+        params.delete('toast');
+        params.delete('error');
+
+        var qs = params.toString();
+        var url = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
+        window.history.replaceState(window.history.state, '', url);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', handleQuery);
+    } else {
+        handleQuery();
+    }
+
+    if (window.Blazor && window.Blazor.addEventListener) {
+        window.Blazor.addEventListener('enhancednavigationend', handleQuery);
+    }
+})();
+</script>";
+}

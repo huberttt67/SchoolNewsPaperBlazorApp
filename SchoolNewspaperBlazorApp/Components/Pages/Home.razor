@@ -1,0 +1,97 @@
+﻿@page "/"
+@using SchoolNewspaperBlazorApp.Components.Components
+@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+@inject IArticleService articleService
+
+<PageTitle>@SectionTitle | Gazetka ETI</PageTitle>
+
+<section class="home-hero">
+    <span class="home-hero__eyebrow">Szkolny portal informacyjny</span>
+
+    <h1>Wszystko, co dzieje się w naszej szkole.</h1>
+
+    <p>
+        Aktualności, wydarzenia i ogłoszenia z życia technikum – w jednym miejscu,
+        tworzone przez uczniów.
+    </p>
+
+    <a href="/#aktualnosci" class="home-hero__button">
+        Czytaj aktualności <span aria-hidden="true">→</span>
+    </a>
+</section>
+
+<div class="section-heading" id="aktualnosci">
+    <div>
+        <h2>@SectionTitle</h2>
+        <p>@SectionDescription</p>
+    </div>
+</div>
+
+<nav class="article-tabs" aria-label="Filtr artykułów według rodzaju">
+    <a href="/#aktualnosci"
+       class="article-tab @(ActiveType is null ? "is-active" : "")"
+       aria-current="@(ActiveType is null ? "page" : null)">
+        Wszystkie
+    </a>
+
+    @foreach (var type in Enum.GetValues<ArticleType>())
+    {
+        <a href="/?typ=@type.Slug()#aktualnosci"
+           class="article-tab @(ActiveType == type ? "is-active" : "")"
+           aria-current="@(ActiveType == type ? "page" : null)">
+            @type.Label()
+        </a>
+    }
+</nav>
+
+@if (articles.Count > 0)
+{
+    <ArticleCard Articles="articles" permissions="false" />
+}
+else
+{
+    <div class="type-empty">
+        <span aria-hidden="true">▤</span>
+        <h3>Brak artykułów</h3>
+        <p>@EmptyMessage</p>
+    </div>
+}
+
+@code
+{
+    // Filtr wybierany adresem, np. /?typ=wydarzenia (czyli też /?typ=Wydarzenia).
+    // Brak parametru albo nieznana wartość = zakładka „Wszystkie”.
+    [SupplyParameterFromQuery(Name = "typ")]
+    public string? Typ { get; set; }
+
+    private List<Article> articles = new();
+
+    private ArticleType? ActiveType { get; set; }
+
+    private string SectionTitle =>
+        ActiveType?.Label() ?? "Aktualności";
+
+    private string SectionDescription =>
+        ActiveType?.Description() ?? "Wszystkie artykuły z życia naszej szkoły w jednym miejscu.";
+
+    private string EmptyMessage =>
+        ActiveType?.EmptyText() ?? "Nie ma jeszcze żadnych artykułów.";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        ArticleType? selected = null;
+
+        if (ArticleTypeExtensions.TryParseSlug(Typ, out var parsed))
+        {
+            selected = parsed;
+        }
+
+        ActiveType = selected;
+
+        // Artykuły zawsze od najnowszych (sortowanie robi repozytorium).
+        articles = selected is { } type
+            ? await articleService.GetArticlesByTypeAsync(type)
+            : await articleService.GetAllArticlesAsync();
+    }
+}

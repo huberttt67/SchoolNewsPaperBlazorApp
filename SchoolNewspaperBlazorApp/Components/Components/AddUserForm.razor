@@ -1,0 +1,47 @@
+﻿@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components
+@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+@inject IArticleService articleService
+@inject IFileService fileService
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+<form @onsubmit="AddUserAsync" @onsubmit:preventDefault>
+    <label class="form-label">Login</label>
+    <input @bind="Login" class="form-control mb-3" placeholder="Login" />
+
+    <label class="form-label">E-mail</label>
+    <input @bind="Email" class="form-control mb-4" placeholder="E-Mail" />
+
+    <label class="form-label">Hasło</label>
+    <input @bind="Password" type="password" class="form-control mb-4" placeholder="Hasło" />
+
+    <button type="submit" class="btn btn-primary w-100">Dodaj</button>
+</form>
+
+@code {
+
+    public required string Login { get; set; }
+    public required string Password { get; set; }
+    public required string Email { get; set; }
+
+    [Inject]
+    public IAuthService AuthService { get; set; } = default!;
+
+    public async Task AddUserAsync()
+    {
+        try
+        {
+            await AuthService.AddUserAsync(Login, Password, Email);
+            Login = Password = Email = string.Empty;
+        }
+        catch (InvalidOperationException ex)
+        {
+            await JS.InvokeVoidAsync("showToast", ex.Message, "error");
+        }
+        catch (ArgumentException ex)
+        {
+            await JS.InvokeVoidAsync("showToast", ex.Message, "error");
+        }
+    }
+}

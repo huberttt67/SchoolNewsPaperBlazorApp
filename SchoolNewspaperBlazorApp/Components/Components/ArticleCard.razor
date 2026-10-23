@@ -1,0 +1,81 @@
+﻿@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+<div class="article-grid">
+    @foreach (var article in Articles)
+    {
+        if (permissions == true)
+        {
+            <div class="article-card">
+                <div class="article-card__img-wrap">
+                    <span class="type-badge type-badge--@article.Type.Slug()">@article.Type.Label()</span>
+                    <img src="@GetImageUrl(article.FileId)" class="article-card__img" alt="@article.Title" loading="lazy">
+                </div>
+                <div class="article-card__body">
+                    <h5 class="article-card__title">@article.Title</h5>
+                    <p class="article-card__text">@article.Text</p>
+                    <div class="article-card__footer">
+                        <span class="article-card__author">@article.Author</span>
+                        <button class="btn btn-sm btn-outline-danger" @onclick="() => RemoveArticleByIdAsync(article.Id)">
+                            Usuń artykuł
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <NavLink class="article-card article-card--link" href="@($"/article/{article.Id}")">
+                <div class="article-card__img-wrap">
+                    <span class="type-badge type-badge--@article.Type.Slug()">@article.Type.Label()</span>
+                    <img src="@GetImageUrl(article.FileId)" class="article-card__img" alt="@article.Title" loading="lazy">
+                </div>
+                <div class="article-card__body">
+                    <h5 class="article-card__title">@article.Title</h5>
+                    <p class="article-card__text">@article.Text</p>
+                    <div class="article-card__footer">
+                        <span class="article-card__author">@article.Author</span>
+                        <span class="article-card__more">Czytaj więcej →</span>
+                    </div>
+                </div>
+            </NavLink>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public List<Article> Articles { get; set; } = new();
+    [Parameter]
+    public bool permissions { get; set; }
+    [Inject]
+    public required IArticleService articleService { get; set; }
+    [Inject]
+    public required IFileService fileService { get; set; }
+    Dictionary<int, string> imageUrls = new Dictionary<int, string>();
+    protected override async Task OnParametersSetAsync()
+    {
+        imageUrls.Clear();
+        foreach(var article in Articles)
+        {
+            var fileName = await fileService.GetFileNameByIdAsync(article.FileId);
+            if(!string.IsNullOrWhiteSpace(fileName))
+            {
+                imageUrls[article.FileId] = $"/Images/{fileName}";
+            }
+        }
+    }
+    private string GetImageUrl(int fileId)
+    {
+        return imageUrls.TryGetValue(fileId, out var url) ? url : "";
+    }
+
+    public async Task RemoveArticleByIdAsync(int id)
+    {
+        await articleService.RemoveArticleByIdAsync(id);
+        Article? article = Articles.FirstOrDefault(a => a.Id == id);
+        if(article != null)
+        {
+        Articles.Remove(article);
+        }
+    }
+}

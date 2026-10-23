@@ -1,0 +1,1954 @@
+﻿@page "/adminPanel"
+@page "/admin/permissions"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@using Microsoft.JSInterop
+@using SchoolNewspaperBlazorApp.Components.Components
+@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+@using SchoolNewspaperBlazorApp.Interfaces.Repository
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components
+@using System.Security.Claims
+
+@inject IArticleService articleService
+@inject IAuthService authService
+@inject IPermissionRepository permissionRepository
+@inject IPermissionService permissionService
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Panel administracyjny | Gazetka ETI</PageTitle>
+
+@if (isCheckingAuthentication)
+{
+    <div class="admin-page">
+        <section class="admin-content-panel">
+            <p>Sprawdzanie logowania i uprawnień...</p>
+        </section>
+    </div>
+}
+else if (!isAuthenticated)
+{
+    <div class="admin-page">
+        <section class="admin-content-panel">
+            <p>Przekierowywanie do logowania...</p>
+        </section>
+    </div>
+}
+else if (!hasAdminAccess)
+{
+    <div class="admin-page">
+        <section class="admin-content-panel">
+            <div class="admin-content-panel__header">
+                <div>
+                    <span class="admin-section-heading__eyebrow">
+                        DOSTĘP ZABLOKOWANY
+                    </span>
+                    <h2>Brak uprawnień</h2>
+                    <p>
+                        Twoje konto nie ma uprawnień do żadnej funkcji panelu administracyjnego.
+                        Poproś administratora o nadanie uprawnienia.
+                    </p>
+                </div>
+            </div>
+
+            <button type="button"
+                    class="admin-back-button"
+                    @onclick="LogoutAsync">
+                <span>↪</span>
+                Wyloguj się
+            </button>
+        </section>
+    </div>
+}
+else
+{
+    <div class="admin-page">
+
+        @if (view == 0)
+        {
+            <header class="admin-header">
+                <div class="admin-header__content">
+                    <span class="admin-header__eyebrow">
+                        GAZETKA ETI · PANEL REDAKCJI
+                    </span>
+
+                    <h1>Panel administracyjny</h1>
+
+                    <p>
+                        Zarządzaj artykułami i publikacjami szkolnej gazetki
+                        w jednym miejscu.
+                    </p>
+
+                    <div class="admin-header__status">
+                        <span class="site-status__dot"></span>
+                        Panel redakcji
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button"
+                                class="admin-back-button"
+                                @onclick="LogoutAsync">
+                            <span>↪</span>
+                            Wyloguj się
+                        </button>
+                    </div>
+                </div>
+
+                <div class="admin-header__emblem">
+                    <img src="logo.png" alt="Logo ETI" />
+                </div>
+            </header>
+
+            <div class="admin-section-heading">
+                <div>
+                    <span class="admin-section-heading__eyebrow">
+                        ZARZĄDZANIE
+                    </span>
+
+                    <h2>Co chcesz zrobić?</h2>
+                    <p>Wybierz jedną z dostępnych opcji.</p>
+                </div>
+            </div>
+
+            <div class="admin-actions">
+                @if (CanViewArticleList)
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="LoadArticleAsync">
+                        <span class="admin-action__number">01</span>
+                        <span class="admin-action__icon">📰</span>
+
+                        <strong>Artykuły</strong>
+
+                        <span class="admin-action__description">
+                            Przeglądaj artykuły, edytuj ich treść
+                            i usuwaj nieaktualne publikacje.
+                        </span>
+
+                        <span class="admin-action__footer">
+                            Otwórz listę artykułów
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
+
+                @if (Can(EnumPermission.CreateArticles))
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="OpenAddArticle">
+                        <span class="admin-action__number">02</span>
+                        <span class="admin-action__icon">✚</span>
+
+                        <strong>Dodaj artykuł</strong>
+
+                        <span class="admin-action__description">
+                            Przygotuj nowy artykuł, dodaj zdjęcie,
+                            wpisz treść i autora.
+                        </span>
+
+                        <span class="admin-action__footer">
+                            Utwórz artykuł
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
+
+                @if (Can(EnumPermission.ManageUsers))
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="OpenAddUser">
+                        <span class="admin-action__number">03</span>
+                        <span class="admin-action__icon">👤</span>
+
+                        <strong>Dodaj użytkownika</strong>
+
+                        <span class="admin-action__description">
+                            Utwórz konto nowego członka redakcji,
+                            ustaw login, adres e-mail i hasło.
+                        </span>
+
+                        <span class="admin-action__footer">
+                            Utwórz konto
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
+
+                @if (IsSuperAdmin)
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="OpenPermissionsAsync">
+                        <span class="admin-action__number">04</span>
+                        <span class="admin-action__icon">🔐</span>
+
+                        <strong>Uprawnienia</strong>
+
+                        <span class="admin-action__description">
+                            Wybieraj użytkowników i przydzielaj im
+                            dostęp do poszczególnych funkcji.
+                        </span>
+
+                        <span class="admin-action__footer">
+                            Zarządzaj uprawnieniami
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
+
+                @if (Can(EnumPermission.ViewUsers) || Can(EnumPermission.ManageUsers))
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="OpenUsersAsync">
+                        <span class="admin-action__number">05</span>
+                        <span class="admin-action__icon">👥</span>
+
+                        <strong>Użytkownicy</strong>
+
+                        <span class="admin-action__description">
+                            @UsersMenuDescription
+                        </span>
+
+                        <span class="admin-action__footer">
+                            Otwórz listę użytkowników
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
+
+                <button type="button"
+                        class="admin-action"
+                        @onclick="OpenOwnPasswordChange">
+                    <span class="admin-action__number">06</span>
+                    <span class="admin-action__icon">🔑</span>
+
+                    <strong>Zmień własne hasło</strong>
+
+                    <span class="admin-action__description">
+                        Zmień hasło do swojego konta.
+                        Podaj obecne hasło i ustaw nowe.
+                    </span>
+
+                    <span class="admin-action__footer">
+                        Zmień hasło
+                        <span>→</span>
+                    </span>
+                </button>
+            </div>
+
+            <section class="admin-section">
+                <div class="admin-section__title-row">
+                    <span class="admin-section__symbol">✎</span>
+
+                    <div>
+                        <h2>Panel redakcji</h2>
+                        <p>
+                            Dodawaj nowe publikacje, edytuj artykuły
+                            i zarządzaj kontami redakcji.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        }
+        else
+        {
+            <div class="admin-back-row">
+                <button type="button"
+                        class="admin-back-button"
+                        @onclick="BackToMenu">
+                    <span>←</span>
+                    Wróć do panelu
+                </button>
+
+                <div class="admin-current-view">
+                    <span class="site-status__dot"></span>
+
+                    @if (view == 1)
+                    {
+                        <span>Lista artykułów</span>
+                    }
+                    else if (view == 2)
+                    {
+                        <span>Dodawanie artykułu</span>
+                    }
+                    else if (view == 3)
+                    {
+                        <span>Edycja artykułu</span>
+                    }
+                    else if (view == 4)
+                    {
+                        <span>Dodawanie użytkownika</span>
+                    }
+                    else if (view == 5)
+                    {
+                        <span>Zarządzanie uprawnieniami</span>
+                    }
+                    else if (view == 6)
+                    {
+                        <span>Użytkownicy</span>
+                    }
+                    else if (view == 7)
+                    {
+                        <span>Zmiana własnego hasła</span>
+                    }
+                </div>
+            </div>
+
+            @if (view == 1)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                PUBLIKACJE
+                            </span>
+
+                            <h2>Lista artykułów</h2>
+
+                            <p>
+                                Zarządzaj artykułami znajdującymi się w bazie danych.
+                            </p>
+                        </div>
+
+                        @if (Can(EnumPermission.CreateArticles))
+                        {
+                            <button type="button"
+                                    class="admin-small-button"
+                                    @onclick="OpenAddArticle">
+                                + Dodaj artykuł
+                            </button>
+                        }
+                    </div>
+
+                    @if (isLoading)
+                    {
+                        <p>Ładowanie artykułów...</p>
+                    }
+                    else if (articleList.Count == 0)
+                    {
+                        <div class="admin-empty-state">
+                            <span class="admin-empty-state__icon">📰</span>
+                            <h3>Brak artykułów</h3>
+
+                            <p>
+                                Nie ma jeszcze żadnych artykułów.
+                                Dodaj pierwszą publikację do gazetki.
+                            </p>
+
+                            @if (Can(EnumPermission.CreateArticles))
+                            {
+                                <button type="button"
+                                        class="btn btn-primary"
+                                        @onclick="OpenAddArticle">
+                                    Dodaj pierwszy artykuł
+                                </button>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="article-panel">
+                            <div class="article-grid">
+                                @foreach (var article in articleList)
+                                {
+                                    <article class="article-card"
+                                             @key="article.Id">
+                                        <div class="article-card__body">
+                                            <span class="type-badge type-badge--inline type-badge--@article.Type.Slug()">@article.Type.Label()</span>
+                                            <h3 class="article-card__title">
+                                                @article.Title
+                                            </h3>
+
+                                            <p>
+                                                <strong>Autor:</strong>
+                                                @article.Author
+                                            </p>
+
+                                            <p class="article-card__text">
+                                                @GetArticlePreview(article.Text)
+                                            </p>
+
+                                            <div class="article-card__footer">
+                                                <span class="article-card__author">
+                                                    ID: @article.Id
+                                                </span>
+
+                                                <div class="d-flex flex-wrap gap-2">
+                                                    @if (Can(EnumPermission.EditArticles))
+                                                    {
+                                                        <button type="button"
+                                                                class="btn btn-outline-primary"
+                                                                @onclick="() => EditArticle(article)">
+                                                            Edytuj
+                                                        </button>
+                                                    }
+
+                                                    @if (Can(EnumPermission.DeleteArticles))
+                                                    {
+                                                        <button type="button"
+                                                                class="btn btn-outline-danger"
+                                                                disabled="@isDeleting"
+                                                                @onclick="() => RemoveArticleAsync(article)">
+                                                            Usuń
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </article>
+                                }
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+            else if (view == 2)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                NOWA PUBLIKACJA
+                            </span>
+
+                            <h2>Dodaj artykuł</h2>
+
+                            <p>
+                                Uzupełnij dane i wybierz zdjęcie artykułu.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="admin-form-wrapper">
+                        <ArticleForm @key="@("add-article")"
+                                     OnSaved="HandleArticleSavedAsync" />
+                    </div>
+                </section>
+            }
+            else if (view == 3)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                AKTUALIZACJA PUBLIKACJI
+                            </span>
+
+                            <h2>Edytuj artykuł</h2>
+
+                            <p>
+                                Zmień tytuł, treść, autora lub zdjęcie artykułu.
+                            </p>
+                        </div>
+                    </div>
+
+                    @if (selectedArticle is not null)
+                    {
+                        <div class="admin-form-wrapper">
+                            <ArticleForm @key="selectedArticle.Id"
+                                         EditingArticle="selectedArticle"
+                                         OnSaved="HandleArticleSavedAsync" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="admin-empty-state">
+                            <h3>Nie wybrano artykułu</h3>
+
+                            <p>
+                                Wróć do listy i wybierz artykuł do edycji.
+                            </p>
+
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    @onclick="LoadArticleAsync">
+                                Wróć do listy
+                            </button>
+                        </div>
+                    }
+                </section>
+            }
+            else if (view == 4)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                ZARZĄDZANIE KONTAMI
+                            </span>
+
+                            <h2>Dodaj użytkownika</h2>
+
+                            <p>
+                                Utwórz konto dla nowego członka redakcji.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="admin-form-wrapper">
+                        <form @onsubmit="AddUserAsync"
+                              @onsubmit:preventDefault>
+
+                            <div class="mb-3">
+                                <label for="newUserLogin" class="form-label">
+                                    Login
+                                </label>
+
+                                <input id="newUserLogin"
+                                       class="form-control"
+                                       type="text"
+                                       @bind="newUserLogin"
+                                       autocomplete="username"
+                                       placeholder="Wpisz login"
+                                       required
+                                       maxlength="100" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="newUserEmail" class="form-label">
+                                    Adres e-mail
+                                </label>
+
+                                <input id="newUserEmail"
+                                       class="form-control"
+                                       type="email"
+                                       @bind="newUserEmail"
+                                       autocomplete="email"
+                                       placeholder="np. uczen@szkola.pl"
+                                       required
+                                       maxlength="256" />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="newUserPassword" class="form-label">
+                                    Hasło
+                                </label>
+
+                                <input id="newUserPassword"
+                                       class="form-control"
+                                       type="password"
+                                       @bind="newUserPassword"
+                                       autocomplete="new-password"
+                                       placeholder="Ustaw hasło"
+                                       required
+                                       minlength="8" />
+
+                                <small class="form-text text-muted">
+                                    Hasło powinno mieć co najmniej 8 znaków.
+                                </small>
+                            </div>
+
+                            <button type="submit"
+                                    class="btn btn-primary"
+                                    disabled="@isSavingUser">
+                                @if (isSavingUser)
+                                {
+                                    <span>Tworzenie konta...</span>
+                                }
+                                else
+                                {
+                                    <span>Dodaj użytkownika</span>
+                                }
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            }
+            else if (view == 6)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                ZARZĄDZANIE KONTAMI
+                            </span>
+
+                            <h2>Użytkownicy</h2>
+
+                            <p>
+                                @UsersPanelDescription
+                            </p>
+                        </div>
+
+                        @if (Can(EnumPermission.ManageUsers))
+                        {
+                            <button type="button"
+                                    class="admin-small-button"
+                                    @onclick="OpenAddUser">
+                                + Dodaj użytkownika
+                            </button>
+                        }
+                    </div>
+
+                    @if (isLoadingUsers)
+                    {
+                        <div class="admin-empty-state">
+                            <p>Ładowanie użytkowników...</p>
+                        </div>
+                    }
+                    else if (editedUser is not null)
+                    {
+                        <div class="admin-form-wrapper">
+                            <h3 class="mb-3">
+                                Edycja konta: @editedUser.Login
+                                @if (editedUser.Id == currentUserId)
+                                {
+                                    <span class="badge bg-secondary ms-2">To Ty</span>
+                                }
+                                @if (editedUser.IsMaster)
+                                {
+                                    <span class="badge bg-primary ms-2">Master</span>
+                                }
+                            </h3>
+
+                            <form @onsubmit="SaveUserProfileAsync"
+                                  @onsubmit:preventDefault>
+
+                                <div class="mb-3">
+                                    <label for="editFirstName" class="form-label">Imię</label>
+                                    <input id="editFirstName"
+                                           class="form-control"
+                                           type="text"
+                                           @bind="editFirstName"
+                                           autocomplete="off"
+                                           maxlength="100" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editLastName" class="form-label">Nazwisko</label>
+                                    <input id="editLastName"
+                                           class="form-control"
+                                           type="text"
+                                           @bind="editLastName"
+                                           autocomplete="off"
+                                           maxlength="100" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editLogin" class="form-label">Login</label>
+                                    <input id="editLogin"
+                                           class="form-control"
+                                           type="text"
+                                           @bind="editLogin"
+                                           autocomplete="off"
+                                           required
+                                           maxlength="100" />
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="editEmail" class="form-label">Adres e-mail</label>
+                                    <input id="editEmail"
+                                           class="form-control"
+                                           type="email"
+                                           @bind="editEmail"
+                                           autocomplete="off"
+                                           required
+                                           maxlength="256" />
+                                </div>
+
+                                <button type="submit"
+                                        class="btn btn-primary"
+                                        disabled="@isSavingProfile">
+                                    @(isSavingProfile ? "Zapisywanie..." : "Zapisz dane")
+                                </button>
+
+                                <button type="button"
+                                        class="btn btn-outline-secondary ms-2"
+                                        @onclick="CancelEditUser">
+                                    Wróć do listy
+                                </button>
+                            </form>
+                        </div>
+                    }
+                    else if (managedUsers.Count == 0)
+                    {
+                        <div class="admin-empty-state">
+                            <span class="admin-empty-state__icon">👥</span>
+                            <h3>Brak użytkowników</h3>
+                            <p>Nie ma kont, które możesz zobaczyć.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Login</th>
+                                        <th>Imię i nazwisko</th>
+                                        <th>E-mail</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in managedUsers)
+                                    {
+                                        <tr @key="item.Id">
+                                            <td>
+                                                @item.Login
+                                                @if (item.Id == currentUserId)
+                                                {
+                                                    <span class="badge bg-secondary ms-1">To Ty</span>
+                                                }
+                                                @if (item.IsMaster)
+                                                {
+                                                    <span class="badge bg-primary ms-1">Master</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @(string.IsNullOrWhiteSpace($"{item.FirstName} {item.LastName}")
+                                                    ? "—"
+                                                    : $"{item.FirstName} {item.LastName}".Trim())
+                                            </td>
+                                            <td>@item.Email</td>
+                                            <td class="text-end">
+                                                @if (item.CanEdit)
+                                                {
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-outline-primary"
+                                                            @onclick="() => StartEditUser(item)">
+                                                        Edytuj
+                                                    </button>
+                                                }
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </section>
+            }
+            else if (view == 5)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                ZARZĄDZANIE DOSTĘPEM
+                            </span>
+
+                            <h2>Uprawnienia użytkowników</h2>
+
+                            <p>
+                                Wybierz konto i zaznacz funkcje, do których
+                                użytkownik ma mieć dostęp. Każda zmiana zapisuje
+                                się od razu w bazie danych.
+                            </p>
+                        </div>
+                    </div>
+
+                    @if (isLoadingPermissions)
+                    {
+                        <div class="admin-empty-state">
+                            <p>Ładowanie użytkowników i uprawnień...</p>
+                        </div>
+                    }
+                    else if (permissionUsers.Count == 0)
+                    {
+                        <div class="admin-empty-state">
+                            <span class="admin-empty-state__icon">👥</span>
+                            <h3>Brak użytkowników</h3>
+                            <p>
+                                Nie znaleziono kont, którym można nadać uprawnienia.
+                                Dodaj konto w zakładce „Dodaj użytkownika”.
+                            </p>
+
+                            <button type="button"
+                                    class="btn btn-primary"
+                                    @onclick="OpenAddUser">
+                                Dodaj użytkownika
+                            </button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="permission-toolbar">
+                            <div class="permission-user-picker">
+                                <label for="permissionUser" class="form-label">
+                                    Wybierz użytkownika
+                                </label>
+
+                                <select id="permissionUser"
+                                        class="form-select"
+                                        @bind="selectedPermissionUserId"
+                                        @bind:after="LoadSelectedUserPermissionsAsync">
+                                    @foreach (var user in permissionUsers)
+                                    {
+                                        <option value="@user.Id">
+                                            @user.Login (@user.Email)
+                                        </option>
+                                    }
+                                </select>
+                            </div>
+
+                            <div class="permission-summary">
+                                <span>🔐</span>
+                                Przydzielone: @selectedPermissions.Count
+                            </div>
+
+                            <button type="button"
+                                    class="permission-delete-btn"
+                                    disabled="@(isDeletingUser || PermissionsLocked)"
+                                    title="@(PermissionsLocked ? "Tego konta nie można usunąć z tego miejsca" : "Usuń wybrane konto")"
+                                    @onclick="DeleteSelectedUserAsync">
+                                <span>🗑</span>
+                                @(isDeletingUser ? "Usuwanie..." : "Usuń użytkownika")
+                            </button>
+                        </div>
+
+                        @if (PermissionsLocked)
+                        {
+                            <div class="alert alert-info">
+                                @(selectedPermissionUserId == currentUserId
+                                    ? "To Twoje konto – nie możesz zmieniać własnych uprawnień."
+                                    : "To konto administratora głównego (Master) – jego uprawnień nie można zmieniać.")
+                            </div>
+                        }
+
+                        <h3 class="mb-3">Zakres dostępu</h3>
+
+                        <div class="permission-grid">
+
+                            @{
+                                var articlePermissions = GetPermissionsForCategory(
+                                    EnumPermission.CreateArticles,
+                                    EnumPermission.EditArticles,
+                                    EnumPermission.DeleteArticles);
+
+                                var userPermissionsList = GetPermissionsForCategory(
+                                    EnumPermission.ViewUsers,
+                                    EnumPermission.ManageUsers);
+                            }
+
+                            @if (articlePermissions.Count > 0)
+                            {
+                                <section class="permission-category">
+                                    <div class="permission-category__header">
+                                        <span class="permission-category__icon">📰</span>
+                                        <div>
+                                            <h3>Artykuły</h3>
+                                            <p>Tworzenie i zarządzanie publikacjami</p>
+                                        </div>
+                                    </div>
+
+                                    @foreach (var permission in articlePermissions)
+                                    {
+                                        <div class="permission-row"
+                                             @key="@($"{permission.Id}-{permissionsRenderVersion}")">
+                                            <div class="permission-row__text">
+                                                <strong>@GetPermissionTitle(permission.Name)</strong>
+                                                <small>@permission.Description</small>
+                                            </div>
+
+                                            <label class="permission-switch"
+                                                   for="@($"permission-{permission.Id}")">
+                                                <input id="@($"permission-{permission.Id}")"
+                                                       type="checkbox"
+                                                       checked="@selectedPermissions.Contains(permission.Name)"
+                                                       disabled="@(savingPermissions.Contains(permission.Name) || PermissionsLocked)"
+                                                       @onchange="(e) => TogglePermissionAsync(permission.Name, e)" />
+                                                <span class="permission-switch__track"></span>
+                                            </label>
+                                        </div>
+                                    }
+                                </section>
+                            }
+
+                            @if (userPermissionsList.Count > 0)
+                            {
+                                <section class="permission-category">
+                                    <div class="permission-category__header">
+                                        <span class="permission-category__icon">👥</span>
+                                        <div>
+                                            <h3>Użytkownicy</h3>
+                                            <p>Podgląd i zarządzanie kontami</p>
+                                        </div>
+                                    </div>
+
+                                    @foreach (var permission in userPermissionsList)
+                                    {
+                                        <div class="permission-row"
+                                             @key="@($"{permission.Id}-{permissionsRenderVersion}")">
+                                            <div class="permission-row__text">
+                                                <strong>@GetPermissionTitle(permission.Name)</strong>
+                                                <small>@permission.Description</small>
+                                            </div>
+
+                                            <label class="permission-switch"
+                                                   for="@($"permission-{permission.Id}")">
+                                                <input id="@($"permission-{permission.Id}")"
+                                                       type="checkbox"
+                                                       checked="@selectedPermissions.Contains(permission.Name)"
+                                                       disabled="@(savingPermissions.Contains(permission.Name) || PermissionsLocked)"
+                                                       @onchange="(e) => TogglePermissionAsync(permission.Name, e)" />
+                                                <span class="permission-switch__track"></span>
+                                            </label>
+                                        </div>
+                                    }
+                                </section>
+                            }
+
+                        </div>
+
+                        <div class="permission-footer">
+                            <div class="permission-footer__hint">
+                                Zmiany zapisują się automatycznie po kliknięciu przełącznika.
+                            </div>
+                        </div>
+                    }
+                </section>
+            }
+            else if (view == 7)
+            {
+                <section class="admin-content-panel">
+                    <div class="admin-content-panel__header">
+                        <div>
+                            <span class="admin-section-heading__eyebrow">
+                                BEZPIECZEŃSTWO KONTA
+                            </span>
+
+                            <h2>Zmień własne hasło</h2>
+
+                            <p>
+                                Aby zmienić hasło, wpisz obecne hasło,
+                                a następnie ustaw i potwierdź nowe.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="admin-form-wrapper">
+                        <form @onsubmit="ChangeOwnPasswordAsync"
+                              @onsubmit:preventDefault>
+
+                            <div class="mb-3">
+                                <label for="ownCurrentPassword" class="form-label">
+                                    Obecne hasło
+                                </label>
+
+                                <input id="ownCurrentPassword"
+                                       class="form-control"
+                                       type="password"
+                                       @bind="ownCurrentPassword"
+                                       autocomplete="current-password"
+                                       placeholder="Wpisz obecne hasło"
+                                       required />
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ownNewPassword" class="form-label">
+                                    Nowe hasło
+                                </label>
+
+                                <input id="ownNewPassword"
+                                       class="form-control"
+                                       type="password"
+                                       @bind="ownNewPassword"
+                                       autocomplete="new-password"
+                                       placeholder="Wpisz nowe hasło"
+                                       required
+                                       minlength="8" />
+
+                                <small class="form-text text-muted">
+                                    Nowe hasło musi mieć co najmniej 8 znaków.
+                                </small>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="ownConfirmPassword" class="form-label">
+                                    Potwierdź nowe hasło
+                                </label>
+
+                                <input id="ownConfirmPassword"
+                                       class="form-control"
+                                       type="password"
+                                       @bind="ownConfirmPassword"
+                                       autocomplete="new-password"
+                                       placeholder="Wpisz ponownie nowe hasło"
+                                       required
+                                       minlength="8" />
+                            </div>
+
+                            <button type="submit"
+                                    class="btn btn-primary"
+                                    disabled="@isChangingOwnPassword">
+                                @(isChangingOwnPassword
+                                    ? "Zmienianie hasła..."
+                                    : "Zmień własne hasło")
+                            </button>
+
+                            <button type="button"
+                                    class="btn btn-outline-secondary ms-2"
+                                    disabled="@isChangingOwnPassword"
+                                    @onclick="BackToMenu">
+                                Anuluj
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            }
+        }
+    </div>
+}
+
+@code {
+    private int view = 0;
+
+    private List<Article> articleList = new();
+    private Article? selectedArticle;
+
+    private bool isLoading;
+    private bool isDeleting;
+    private bool isDeletingUser;
+    private bool isSavingUser;
+
+    private bool isCheckingAuthentication = true;
+    private bool isAuthenticated;
+    private bool hasAdminAccess;
+
+    // Komunikaty wyświetlane jako powiadomienia na górze strony (toast).
+    private readonly Queue<(string Type, string Message)> pendingToasts = new();
+
+    private string? _errorMessage;
+    private string? _successMessage;
+
+    private string? errorMessage
+    {
+        get => _errorMessage;
+        set
+        {
+            _errorMessage = value;
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                pendingToasts.Enqueue(("error", value));
+            }
+        }
+    }
+
+    private string? successMessage
+    {
+        get => _successMessage;
+        set
+        {
+            _successMessage = value;
+
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                pendingToasts.Enqueue(("success", value));
+            }
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        while (pendingToasts.Count > 0)
+        {
+            var (type, message) = pendingToasts.Dequeue();
+
+            try
+            {
+                await JS.InvokeVoidAsync("showToast", message, type);
+            }
+            catch (JSDisconnectedException)
+            {
+                pendingToasts.Clear();
+            }
+            catch (InvalidOperationException)
+            {
+                // JS jeszcze niedostępny (prerendering) - pomijamy.
+            }
+        }
+    }
+
+    private string newUserLogin = string.Empty;
+    private string newUserEmail = string.Empty;
+    private string newUserPassword = string.Empty;
+
+    // Własna zmiana hasła.
+    private string ownCurrentPassword = string.Empty;
+    private string ownNewPassword = string.Empty;
+    private string ownConfirmPassword = string.Empty;
+    private bool isChangingOwnPassword;
+
+    // Dane i stan zakładki uprawnień.
+    private List<User> permissionUsers = new();
+    private List<Permission> availablePermissions = new();
+    private HashSet<EnumPermission> selectedPermissions = new();
+
+    // Uprawnienia, które są w tej chwili zapisywane (blokują swój checkbox).
+    private HashSet<EnumPermission> savingPermissions = new();
+
+    // Zmiana wartości wymusza odtworzenie checkboxów (cofnięcie po błędzie).
+    private int permissionsRenderVersion;
+
+    private int selectedPermissionUserId;
+    private int currentUserId;
+
+    // Uprawnienia zalogowanego użytkownika (wczytywane z bazy przy wejściu).
+    private HashSet<EnumPermission> currentUserPermissions = new();
+
+    // Master = pełny dostęp (administrator główny).
+    private bool IsSuperAdmin =>
+        currentUserPermissions.Contains(EnumPermission.Master);
+
+    private bool Can(EnumPermission permission) =>
+        IsSuperAdmin || currentUserPermissions.Contains(permission);
+
+    private bool CanViewArticleList =>
+        Can(EnumPermission.CreateArticles) ||
+        Can(EnumPermission.EditArticles) ||
+        Can(EnumPermission.DeleteArticles);
+
+    // Uprawnienia, które wpuszczają do panelu.
+    private static readonly EnumPermission[] PanelPermissions =
+    {
+        EnumPermission.Master,
+        EnumPermission.AccessAdminPanel,
+        EnumPermission.CreateArticles,
+        EnumPermission.EditArticles,
+        EnumPermission.DeleteArticles,
+        EnumPermission.ViewUsers,
+        EnumPermission.ManageUsers
+    };
+
+    private bool isLoadingPermissions;
+
+    // Własne konto i konta Master są tylko do podglądu.
+    private bool PermissionsLocked =>
+        selectedPermissionUserId == currentUserId ||
+        selectedPermissions.Contains(EnumPermission.Master);
+
+    private string UsersMenuDescription =>
+        Can(EnumPermission.ManageUsers)
+            ? "Przeglądaj konta redakcji i edytuj dane profili."
+            : "Przeglądaj konta redakcji.";
+
+    private string UsersPanelDescription =>
+        Can(EnumPermission.ManageUsers)
+            ? "Lista kont redakcji. Możesz edytować dane profili."
+            : "Lista kont redakcji.";
+
+    // Panel użytkowników (widok 6).
+    private List<UserListItem> managedUsers = new();
+    private UserListItem? editedUser;
+    private bool isLoadingUsers;
+    private bool isSavingProfile;
+    private string editLogin = string.Empty;
+    private string editEmail = string.Empty;
+    private string editFirstName = string.Empty;
+    private string editLastName = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var authState =
+                await AuthenticationStateProvider.GetAuthenticationStateAsync();
+
+            var user = authState.User;
+
+            isAuthenticated =
+                user.Identity?.IsAuthenticated == true;
+
+            if (!isAuthenticated)
+            {
+                Navigation.NavigateTo("/login", forceLoad: true);
+                return;
+            }
+
+            var userIdValue =
+                user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            if (!int.TryParse(userIdValue, out var userId))
+            {
+                hasAdminAccess = false;
+                return;
+            }
+
+            currentUserId = userId;
+
+            var permissions =
+                await permissionRepository.GetUserPermissionsAsync(userId);
+
+            currentUserPermissions = permissions.ToHashSet();
+
+            hasAdminAccess =
+                permissions.Any(p => PanelPermissions.Contains(p));
+
+            if (hasAdminAccess && CanViewArticleList)
+            {
+                articleList = await articleService.GetAllArticlesAsync();
+            }
+
+            // Wejście bezpośrednio pod adres /admin/permissions otwiera widok
+            // uprawnień (tylko dla administratora głównego – tak samo jak
+            // przycisk „Uprawnienia” w panelu). Pozostali zostają w menu panelu.
+            var path = "/" + Navigation.ToBaseRelativePath(Navigation.Uri)
+                .Split('?', '#')[0]
+                .Trim('/');
+
+            if (hasAdminAccess &&
+                string.Equals(path, "/admin/permissions",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                if (IsSuperAdmin)
+                {
+                    await OpenPermissionsAsync();
+                }
+                else
+                {
+                    errorMessage =
+                        "Tylko administrator główny może zarządzać uprawnieniami.";
+                }
+            }
+        }
+        catch (Exception)
+        {
+            hasAdminAccess = false;
+            errorMessage =
+                "Nie udało się sprawdzić uprawnień. Spróbuj ponownie.";
+        }
+        finally
+        {
+            isCheckingAuthentication = false;
+        }
+    }
+
+    private async Task LoadArticleAsync()
+    {
+        if (!hasAdminAccess || !CanViewArticleList)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            articleList = await articleService.GetAllArticlesAsync();
+            view = 1;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Nie udało się pobrać artykułów.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void OpenAddArticle()
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.CreateArticles))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        selectedArticle = null;
+        view = 2;
+    }
+
+    private void EditArticle(Article article)
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.EditArticles))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        selectedArticle = article;
+        view = 3;
+    }
+
+    private void OpenAddUser()
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.ManageUsers))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        newUserLogin = string.Empty;
+        newUserEmail = string.Empty;
+        newUserPassword = string.Empty;
+
+        view = 4;
+    }
+
+    private void OpenOwnPasswordChange()
+    {
+        if (!isAuthenticated || currentUserId <= 0)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        ownCurrentPassword = string.Empty;
+        ownNewPassword = string.Empty;
+        ownConfirmPassword = string.Empty;
+
+        view = 7;
+    }
+
+    private async Task ChangeOwnPasswordAsync()
+    {
+        if (!isAuthenticated ||
+            currentUserId <= 0 ||
+            isChangingOwnPassword)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(ownCurrentPassword))
+        {
+            errorMessage = "Wpisz obecne hasło.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(ownNewPassword) ||
+            ownNewPassword.Length < 8)
+        {
+            errorMessage = "Nowe hasło musi mieć co najmniej 8 znaków.";
+            return;
+        }
+
+        if (!string.Equals(
+            ownNewPassword,
+            ownConfirmPassword,
+            StringComparison.Ordinal))
+        {
+            errorMessage = "Nowe hasła nie są identyczne.";
+            return;
+        }
+
+        isChangingOwnPassword = true;
+
+        try
+        {
+            await authService.ChangeUserPasswordAsync(
+                currentUserId,
+                ownCurrentPassword,
+                ownNewPassword);
+
+            ownCurrentPassword = string.Empty;
+            ownNewPassword = string.Empty;
+            ownConfirmPassword = string.Empty;
+
+            successMessage = "Twoje hasło zostało zmienione.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd zmiany własnego hasła: {ex}");
+
+            errorMessage = "Nie udało się zmienić hasła.";
+        }
+        finally
+        {
+            isChangingOwnPassword = false;
+        }
+    }
+
+    private async Task AddUserAsync()
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.ManageUsers))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(newUserLogin) ||
+            string.IsNullOrWhiteSpace(newUserEmail) ||
+            string.IsNullOrWhiteSpace(newUserPassword))
+        {
+            errorMessage = "Wypełnij wszystkie pola.";
+            return;
+        }
+
+        if (newUserPassword.Length < 8)
+        {
+            errorMessage = "Hasło musi mieć co najmniej 8 znaków.";
+            return;
+        }
+
+        if (isSavingUser)
+        {
+            return;
+        }
+
+        isSavingUser = true;
+
+        try
+        {
+            await authService.AddUserAsync(
+                newUserLogin.Trim(),
+                newUserPassword,
+                newUserEmail.Trim());
+
+            newUserLogin = string.Empty;
+            newUserEmail = string.Empty;
+            newUserPassword = string.Empty;
+
+            successMessage = "Użytkownik został dodany.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage =
+                "Nie udało się dodać użytkownika. Sprawdź połączenie z bazą danych i spróbuj ponownie.";
+        }
+        finally
+        {
+            isSavingUser = false;
+        }
+    }
+
+    private async Task OpenPermissionsAsync()
+    {
+        if (!hasAdminAccess || !IsSuperAdmin)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isLoadingPermissions = true;
+        view = 5;
+
+        try
+        {
+            availablePermissions =
+                await permissionService.GetAllPermissionsAsync();
+
+            permissionUsers =
+                await permissionService.GetAllUsersAsync();
+
+            if (permissionUsers.Count == 0)
+            {
+                selectedPermissionUserId = 0;
+                selectedPermissions.Clear();
+                return;
+            }
+
+            if (!permissionUsers.Any(
+                    u => u.Id == selectedPermissionUserId))
+            {
+                selectedPermissionUserId = permissionUsers[0].Id;
+            }
+
+            await LoadSelectedUserPermissionsAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd ładowania zakładki uprawnień: {ex}");
+
+            errorMessage =
+                "Nie udało się pobrać użytkowników lub uprawnień. Sprawdź konfigurację bazy danych oraz tabele Permissions i UserPermissions.";
+        }
+        finally
+        {
+            isLoadingPermissions = false;
+        }
+    }
+
+    private async Task OpenUsersAsync()
+    {
+        if (!hasAdminAccess ||
+            (!Can(EnumPermission.ViewUsers) && !Can(EnumPermission.ManageUsers)))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        editedUser = null;
+        isLoadingUsers = true;
+        view = 6;
+
+        try
+        {
+            managedUsers = await authService.GetUsersAsync();
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            managedUsers = new();
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Błąd ładowania listy użytkowników: {ex}");
+            managedUsers = new();
+            errorMessage =
+                "Nie udało się pobrać listy użytkowników. Sprawdź połączenie z bazą danych.";
+        }
+        finally
+        {
+            isLoadingUsers = false;
+        }
+    }
+
+    private void StartEditUser(UserListItem item)
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.ManageUsers) || !item.CanEdit)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        editedUser = item;
+        editLogin = item.Login;
+        editEmail = item.Email;
+        editFirstName = item.FirstName;
+        editLastName = item.LastName;
+    }
+
+    private void CancelEditUser()
+    {
+        editedUser = null;
+        errorMessage = null;
+    }
+
+    private async Task SaveUserProfileAsync()
+    {
+        if (editedUser is null || isSavingProfile ||
+            !hasAdminAccess || !Can(EnumPermission.ManageUsers))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isSavingProfile = true;
+
+        try
+        {
+            var id = editedUser.Id;
+
+            await authService.UpdateUserProfileAsync(
+                id,
+                editLogin,
+                editEmail,
+                editFirstName,
+                editLastName);
+
+            // Ponowny odczyt z bazy, żeby lista pokazywała zapisane dane.
+            managedUsers = await authService.GetUsersAsync();
+            editedUser = managedUsers.FirstOrDefault(u => u.Id == id);
+
+            if (editedUser is not null)
+            {
+                editLogin = editedUser.Login;
+                editEmail = editedUser.Email;
+                editFirstName = editedUser.FirstName;
+                editLastName = editedUser.LastName;
+            }
+
+            successMessage = "Dane użytkownika zostały zapisane.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Błąd zapisu danych użytkownika: {ex}");
+            errorMessage = "Nie udało się zapisać danych użytkownika.";
+        }
+        finally
+        {
+            isSavingProfile = false;
+        }
+    }
+
+    private async Task DeleteSelectedUserAsync()
+    {
+        if (!hasAdminAccess || !IsSuperAdmin ||
+            selectedPermissionUserId <= 0 || isDeletingUser)
+        {
+            return;
+        }
+
+        if (selectedPermissionUserId == currentUserId)
+        {
+            errorMessage = "Nie możesz usunąć własnego konta.";
+            return;
+        }
+
+        var user = permissionUsers
+            .FirstOrDefault(u => u.Id == selectedPermissionUserId);
+
+        if (user is null)
+        {
+            return;
+        }
+
+        bool confirmed;
+
+        try
+        {
+            confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Czy na pewno chcesz usunąć użytkownika „{user.Login}” ({user.Email})? Konto zostanie wyłączone i nie będzie mogło się zalogować.");
+        }
+        catch (Exception)
+        {
+            errorMessage =
+                "Nie udało się wyświetlić potwierdzenia usunięcia.";
+            return;
+        }
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isDeletingUser = true;
+
+        try
+        {
+            await permissionService.DeleteUserAsync(user.Id);
+
+            permissionUsers =
+                await permissionService.GetAllUsersAsync();
+
+            if (permissionUsers.Count == 0)
+            {
+                selectedPermissionUserId = 0;
+                selectedPermissions.Clear();
+            }
+            else
+            {
+                selectedPermissionUserId = permissionUsers[0].Id;
+                await LoadSelectedUserPermissionsAsync();
+            }
+
+            successMessage = "Użytkownik został usunięty.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Nie udało się usunąć użytkownika.";
+        }
+        finally
+        {
+            isDeletingUser = false;
+        }
+    }
+
+    private async Task LoadSelectedUserPermissionsAsync()
+    {
+        if (!hasAdminAccess || !IsSuperAdmin || selectedPermissionUserId <= 0)
+        {
+            selectedPermissions.Clear();
+            return;
+        }
+
+        try
+        {
+            var permissions =
+                await permissionService.GetUserPermissionsAsync(
+                    selectedPermissionUserId);
+
+            selectedPermissions = permissions.ToHashSet();
+            savingPermissions.Clear();
+            permissionsRenderVersion++;
+            errorMessage = null;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd pobierania uprawnień użytkownika: {ex}");
+
+            selectedPermissions.Clear();
+            errorMessage =
+                "Nie udało się pobrać uprawnień wybranego użytkownika.";
+        }
+    }
+
+    // Zaznaczenie checkboxa => INSERT do bazy, odznaczenie => DELETE z bazy.
+    private async Task TogglePermissionAsync(
+        EnumPermission permission,
+        ChangeEventArgs args)
+    {
+        if (!hasAdminAccess || !IsSuperAdmin || selectedPermissionUserId <= 0)
+        {
+            return;
+        }
+
+        if (savingPermissions.Contains(permission))
+        {
+            return;
+        }
+
+        if (PermissionsLocked)
+        {
+            errorMessage =
+                "Uprawnień własnego konta ani konta Master nie można zmieniać.";
+            permissionsRenderVersion++;
+            return;
+        }
+
+        var isChecked = args.Value is bool value && value;
+
+        errorMessage = null;
+        successMessage = null;
+
+        if (!isChecked &&
+            selectedPermissionUserId == currentUserId &&
+            permission == EnumPermission.Master)
+        {
+            errorMessage =
+                "Nie możesz odebrać sobie tego uprawnienia, bo straciłbyś możliwość zarządzania dostępem.";
+            permissionsRenderVersion++;
+            return;
+        }
+
+        savingPermissions.Add(permission);
+
+        try
+        {
+            if (isChecked)
+            {
+                await permissionService.AddUserPermissionAsync(
+                    selectedPermissionUserId, permission);
+            }
+            else
+            {
+                await permissionService.RemoveUserPermissionAsync(
+                    selectedPermissionUserId, permission);
+            }
+
+            selectedPermissions =
+                (await permissionService.GetUserPermissionsAsync(
+                    selectedPermissionUserId)).ToHashSet();
+
+            successMessage = isChecked
+                ? $"Dodano uprawnienie: {GetPermissionTitle(permission)}."
+                : $"Odebrano uprawnienie: {GetPermissionTitle(permission)}.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+            permissionsRenderVersion++;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+            permissionsRenderVersion++;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd zmiany uprawnienia: {ex}");
+
+            errorMessage = "Nie udało się zapisać zmiany uprawnienia.";
+            permissionsRenderVersion++;
+        }
+        finally
+        {
+            savingPermissions.Remove(permission);
+        }
+    }
+
+    private List<Permission> GetPermissionsForCategory(
+        params EnumPermission[] permissions)
+    {
+        return availablePermissions
+            .Where(p => permissions.Contains(p.Name))
+            .OrderBy(p => Array.IndexOf(permissions, p.Name))
+            .ToList();
+    }
+
+    private static string GetPermissionTitle(EnumPermission permission)
+    {
+        return permission switch
+        {
+            EnumPermission.AccessAdminPanel => "Dostęp do panelu administracyjnego",
+            EnumPermission.Master => "Administrator główny",
+            EnumPermission.CreateArticles => "Dodawanie artykułów",
+            EnumPermission.EditArticles => "Edytowanie artykułów",
+            EnumPermission.DeleteArticles => "Usuwanie artykułów",
+            EnumPermission.ViewUsers => "Wyświetlanie użytkowników",
+            EnumPermission.ManageUsers => "Zarządzanie użytkownikami",
+            EnumPermission.CreateAnnouncements => "Dodawanie ogłoszeń",
+            EnumPermission.EditAnnouncements => "Edytowanie ogłoszeń",
+            EnumPermission.DeleteAnnouncements => "Usuwanie ogłoszeń",
+            EnumPermission.None => "Brak uprawnień",
+            _ => permission.ToString()
+        };
+    }
+
+    private async Task HandleArticleSavedAsync()
+    {
+        if (!hasAdminAccess ||
+            (!Can(EnumPermission.CreateArticles) &&
+             !Can(EnumPermission.EditArticles)))
+        {
+            return;
+        }
+
+        selectedArticle = null;
+        await LoadArticleAsync();
+
+        if (view == 1 && string.IsNullOrWhiteSpace(errorMessage))
+        {
+            successMessage = "Artykuł został zapisany.";
+        }
+    }
+
+    private async Task RemoveArticleAsync(Article article)
+    {
+        if (!hasAdminAccess || !Can(EnumPermission.DeleteArticles) || isDeleting)
+        {
+            return;
+        }
+
+        bool confirmed;
+
+        try
+        {
+            confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Czy na pewno chcesz usunąć artykuł „{article.Title}”?");
+        }
+        catch (Exception)
+        {
+            errorMessage =
+                "Nie udało się wyświetlić potwierdzenia usunięcia.";
+            return;
+        }
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        isDeleting = true;
+
+        try
+        {
+            await articleService.RemoveArticleByIdAsync(article.Id);
+            articleList = await articleService.GetAllArticlesAsync();
+
+            successMessage = "Artykuł został usunięty.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception)
+        {
+            errorMessage = "Nie udało się usunąć artykułu.";
+        }
+        finally
+        {
+            isDeleting = false;
+        }
+    }
+
+    private void BackToMenu()
+    {
+        if (!hasAdminAccess)
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+        selectedArticle = null;
+        editedUser = null;
+
+        ownCurrentPassword = string.Empty;
+        ownNewPassword = string.Empty;
+        ownConfirmPassword = string.Empty;
+
+        view = 0;
+    }
+
+    private Task LogoutAsync()
+    {
+        Navigation.NavigateTo("/auth/logout", forceLoad: true);
+        return Task.CompletedTask;
+    }
+
+    private static string GetArticlePreview(string? articleText)
+    {
+        if (string.IsNullOrWhiteSpace(articleText))
+        {
+            return "Brak treści artykułu.";
+        }
+
+        return articleText.Length > 180
+            ? articleText[..180] + "..."
+            : articleText;
+    }
+}

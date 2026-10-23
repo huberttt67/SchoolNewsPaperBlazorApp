@@ -1,0 +1,169 @@
+﻿@page "/login"
+@rendermode InteractiveServer
+
+@using Microsoft.AspNetCore.WebUtilities
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+
+@inject NavigationManager Navigation
+
+<PageTitle>Logowanie | Gazetka ETI</PageTitle>
+
+<div class="login-page">
+    <aside class="login-side">
+        <div class="login-side__brand">
+            <span class="login-side__logo-wrap">
+                <img src="logo.png" alt="Logo ETI" class="login-side__logo" />
+            </span>
+
+            <div>
+                <div class="login-side__name">
+                    GAZETKA <span>ETI</span>
+                </div>
+                <div class="login-side__tagline">
+                    Szkolny portal informacyjny
+                </div>
+            </div>
+        </div>
+
+        <div class="login-side__content">
+            <span class="login-side__eyebrow">Panel redakcji</span>
+
+            <h2>Twórz szkolne wiadomości w jednym miejscu.</h2>
+
+            <p>
+                Zaloguj się, aby dodawać artykuły, zarządzać treściami
+                i dbać o to, żeby cała szkoła była na bieżąco.
+            </p>
+
+            <ul class="login-features">
+                <li class="login-feature">
+                    <span class="login-feature__icon" aria-hidden="true">📰</span>
+                    <div>
+                        <strong>Artykuły</strong>
+                        <span>Dodawaj i edytuj aktualności ze zdjęciami.</span>
+                    </div>
+                </li>
+
+                <li class="login-feature">
+                    <span class="login-feature__icon" aria-hidden="true">👥</span>
+                    <div>
+                        <strong>Użytkownicy</strong>
+                        <span>Zarządzaj dostępem członków redakcji.</span>
+                    </div>
+                </li>
+
+                <li class="login-feature">
+                    <span class="login-feature__icon" aria-hidden="true">📢</span>
+                    <div>
+                        <strong>Ogłoszenia</strong>
+                        <span>Informuj uczniów o ważnych wydarzeniach.</span>
+                    </div>
+                </li>
+            </ul>
+        </div>
+
+        <div class="login-side__footer">
+            © @DateTime.Now.Year Gazetka ETI
+        </div>
+    </aside>
+
+    <main class="login-panel">
+        <a href="/" class="login-back">
+            <span aria-hidden="true">←</span>
+            Wróć na stronę główną
+        </a>
+
+        <div class="login-card">
+            <div class="login-heading">
+                <h1>Witaj ponownie!</h1>
+                <p>Zaloguj się, aby przejść do panelu.</p>
+            </div>
+
+            <form action="/auth/login" method="post">
+                <div class="login-field">
+                    <label for="login-email">Email</label>
+
+                    <div class="login-input-wrapper">
+                        <span class="login-field-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <rect x="3" y="5" width="18" height="14" rx="3"
+                                      stroke="currentColor" stroke-width="1.7" />
+                                <path d="m4 7 8 6 8-6"
+                                      stroke="currentColor" stroke-width="1.7"
+                                      stroke-linecap="round"
+                                      stroke-linejoin="round" />
+                            </svg>
+                        </span>
+
+                        <input id="login-email"
+                               name="Email"
+                               type="email"
+                               class="login-input"
+                               placeholder="np. uczen@szkola.pl"
+                               autocomplete="username"
+                               required />
+                    </div>
+                </div>
+
+                <div class="login-field">
+                    <label for="login-password">Hasło</label>
+
+                    <div class="login-input-wrapper">
+                        <span class="login-field-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none">
+                                <rect x="4" y="10" width="16" height="11" rx="3"
+                                      stroke="currentColor" stroke-width="1.7" />
+                                <path d="M8 10V7a4 4 0 0 1 8 0v3"
+                                      stroke="currentColor" stroke-width="1.7"
+                                      stroke-linecap="round" />
+                                <circle cx="12" cy="15" r="1.3"
+                                        fill="currentColor" />
+                            </svg>
+                        </span>
+
+                        <input id="login-password"
+                               name="Password"
+                               type="password"
+                               class="login-input"
+                               placeholder="Wpisz swoje hasło"
+                               autocomplete="current-password"
+                               required />
+                    </div>
+                </div>
+
+                @if (hasLoginError)
+                {
+                    <div class="login-error" role="alert">
+                        Błędny email lub hasło albo konto nie istnieje.
+                    </div>
+                }
+
+                <button type="submit" class="login-button">
+                    Zaloguj się
+                    <span aria-hidden="true">→</span>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <span class="login-footer-line"></span>
+                <p>
+                    Problem z logowaniem? Skontaktuj się z opiekunem gazetki.
+                </p>
+            </div>
+        </div>
+    </main>
+</div>
+
+@code {
+    private bool hasLoginError;
+
+    protected override void OnInitialized()
+    {
+        var uri = new Uri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+
+        hasLoginError =
+            query.TryGetValue("error", out var error) &&
+            error.ToString() == "1";
+    }
+}

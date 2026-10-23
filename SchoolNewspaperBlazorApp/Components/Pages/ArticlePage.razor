@@ -1,0 +1,158 @@
+﻿@page "/article/{Id:int}"
+
+@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+
+<PageTitle>@(article?.Title ?? "Artykuł") | Gazetka ETI</PageTitle>
+
+@if (article != null)
+{
+    <article class="ap">
+        @* Zakładki bez JavaScriptu: ukryte przełączniki + etykiety w pasku bocznym *@
+        <input type="radio" name="ap-tab" id="ap-tab-info" class="ap-radio" checked />
+        <input type="radio" name="ap-tab" id="ap-tab-gallery" class="ap-radio" />
+
+        <a href="@BackHref" class="ap-back">← Wróć do: @article.Type.Label()</a>
+
+        <div class="ap-layout">
+
+            <aside class="ap-rail" aria-label="Sekcje artykułu">
+                <div class="ap-rail__card">
+                    <span class="ap-rail__eyebrow">@article.Type.Label().ToUpperInvariant()</span>
+                    <strong class="ap-rail__title">@article.Title</strong>
+                </div>
+
+                <nav class="ap-rail__nav">
+                    <label for="ap-tab-info" class="ap-tab ap-tab--info">
+                        <span class="ap-tab__icon">✎</span>
+                        <span class="ap-tab__text">
+                            <strong>Informacje</strong>
+                            <small>Treść artykułu</small>
+                        </span>
+                    </label>
+
+                    <label for="ap-tab-gallery" class="ap-tab ap-tab--gallery">
+                        <span class="ap-tab__icon">▦</span>
+                        <span class="ap-tab__text">
+                            <strong>Galeria</strong>
+                            <small>@(galleryImages.Count > 0 ? "Więcej zdjęć" : "Brak dodatkowych zdjęć")</small>
+                        </span>
+                        @if (galleryImages.Count > 0)
+                        {
+                            <span class="ap-tab__badge">@galleryImages.Count</span>
+                        }
+                    </label>
+                </nav>
+
+                <dl class="ap-facts">
+                    <div>
+                        <dt>Autor</dt>
+                        <dd>@article.Author</dd>
+                    </div>
+                    <div>
+                        <dt>Opublikowano</dt>
+                        <dd>@article.PublishDate.ToString("dd.MM.yyyy")</dd>
+                    </div>
+                </dl>
+            </aside>
+
+            <div class="ap-main">
+
+                <section class="ap-pane ap-pane--info">
+                    @if (!string.IsNullOrEmpty(imageUrl))
+                    {
+                        <div class="ap-cover"><img src="@imageUrl" alt="@article.Title" /></div>
+                    }
+
+                    <div class="ap-eyebrow">@article.Type.Label().ToUpperInvariant()</div>
+                    <h1 class="ap-title">@article.Title</h1>
+
+                    <div class="ap-meta">
+                        <span class="ap-meta__author">@article.Author</span>
+                        <span>@article.PublishDate.ToString("dd.MM.yyyy")</span>
+                    </div>
+
+                    <div class="ap-content">@article.Text</div>
+                </section>
+
+                <section class="ap-pane ap-pane--gallery">
+                    <header class="ap-gallery__head">
+                        <div>
+                            <span class="ap-eyebrow">WIĘCEJ KADRÓW</span>
+                            <h2>Galeria zdjęć</h2>
+                            <p>Chwile i szczegóły związane z tym artykułem.</p>
+                        </div>
+                        @if (galleryImages.Count > 0)
+                        {
+                            <span class="ap-gallery__count">@galleryImages.Count zdjęć</span>
+                        }
+                    </header>
+
+                    @if (galleryImages.Count > 0)
+                    {
+                        <div class="ap-gallery__grid">
+                            @foreach (var image in galleryImages)
+                            {
+                                var photoUrl = $"/Images/Gallery/{Id}/{Uri.EscapeDataString(image)}";
+                                <a class="ap-photo" href="@photoUrl" target="_blank" rel="noopener noreferrer">
+                                    <img src="@photoUrl" alt="Zdjęcie z galerii artykułu: @article.Title" loading="lazy" />
+                                    <span class="ap-photo__zoom">↗</span>
+                                </a>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="ap-gallery__empty">
+                            <span>▦</span>
+                            <p>Ten artykuł nie ma jeszcze dodatkowych zdjęć.</p>
+                        </div>
+                    }
+                </section>
+
+                <div class="ap-bottom">
+                    <span>To wszystko z tej aktualności</span>
+                    <a href="@BackHref">Zobacz pozostałe: @article.Type.Label() →</a>
+                </div>
+            </div>
+        </div>
+    </article>
+}
+else
+{
+    <div class="article-page__not-found"><h1>Nie znaleziono artykułu</h1><a href="/">Wróć do strony głównej</a></div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private Article? article;
+    private string? imageUrl;
+    private List<string> galleryImages = new();
+    private string BackHref => article is null ? "/" : $"/?typ={article.Type.Slug()}#aktualnosci";
+    [Inject] public IArticleService articleService { get; set; } = default!;
+    [Inject] public IFileService fileService { get; set; } = default!;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        article = await articleService.GetArticleByIdAsync(Id);
+        imageUrl = null;
+        galleryImages.Clear();
+        if (article != null)
+        {
+            try
+            {
+                var fileName = await fileService.GetFileNameByIdAsync(article.FileId);
+                if (!string.IsNullOrWhiteSpace(fileName)) imageUrl = $"/Images/{fileName}";
+            }
+            catch { /* Artykuł może nie mieć zdjęcia głównego. */ }
+            try
+            {
+                galleryImages = await fileService.GetGalleryImagesAsync(Id);
+            }
+            catch
+            {
+                galleryImages = new List<string>();
+            }
+        }
+    }
+}

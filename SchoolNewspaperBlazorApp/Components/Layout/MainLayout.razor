@@ -1,0 +1,161 @@
+﻿@inherits LayoutComponentBase
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.WebUtilities
+@using SchoolNewspaperBlazorApp.Data
+@inject NavigationManager Nav
+
+<div class="site-shell">
+    <div id="toast-container"
+         class="eti-toast-container"
+         data-permanent
+         aria-live="polite"
+         aria-atomic="false"></div>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+
+            <a class="brand" href="/" aria-label="Gazetka szkolna ETI">
+                <span class="brand__logo-wrap">
+                    <img src="/logo.png"
+                         class="brand__logo"
+                         alt="Logo ETI" />
+                </span>
+
+                <span class="brand__text">
+                    <span class="brand__name">GAZETKA SZKOLNA</span>
+                    <span class="brand__subtitle">
+                        Elitarne Technikum Informatyczne
+                    </span>
+                </span>
+            </a>
+
+            <nav class="main-nav" aria-label="Menu główne">
+                <a class="main-nav__link @(IsHomeActive ? "active" : "")"
+                   href="/"
+                   aria-current="@(IsHomeActive ? "page" : null)">
+                    <span class="nav-icon">⌂</span>
+                    Strona główna
+                </a>
+
+                @foreach (var type in MenuTypes)
+                {
+                    <a class="main-nav__link main-nav__link--type @(ActiveType == type ? "active" : "")"
+                       href="/?typ=@type.Slug()#aktualnosci"
+                       aria-current="@(ActiveType == type ? "page" : null)">
+                        <span class="nav-dot nav-dot--@type.Slug()"></span>
+                        @type.Label()
+                    </a>
+                }
+            </nav>
+
+            <div class="site-header__actions">
+                <AuthorizeView>
+                    <NotAuthorized>
+                        <NavLink class="header-login" href="/login">
+                            <span>♙</span>
+                            Zaloguj się
+                        </NavLink>
+                    </NotAuthorized>
+                </AuthorizeView>
+            </div>
+
+        </div>
+
+        <div class="site-header__bottom">
+            <div class="site-header__bottom-inner">
+                <div class="site-status">
+                    <span class="site-status__dot"></span>
+                    <span>Twoje szkolne centrum informacji</span>
+                </div>
+
+                <AuthorizeView>
+                    <Authorized>
+                        <NavLink class="admin-link" href="/adminPanel">
+                            <span class="admin-link__icon">⚙</span>
+                            Panel administratora
+                            <span>↗</span>
+                        </NavLink>
+                    </Authorized>
+                </AuthorizeView>
+            </div>
+        </div>
+    </header>
+
+    <main class="site-main">
+        @Body
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+
+            <div class="site-footer__brand">
+                <img src="/logo.png"
+                     class="site-footer__logo"
+                     alt="Logo ETI" />
+
+                <div>
+                    <strong>Gazetka szkolna ETI</strong>
+                    <p>Szkolne wiadomości. Nasze historie.</p>
+                </div>
+            </div>
+
+            <nav class="site-footer__links" aria-label="Linki w stopce">
+                <NavLink href="/" Match="NavLinkMatch.All">
+                    Strona główna
+                </NavLink>
+                @foreach (var type in MenuTypes)
+                {
+                    <a href="/?typ=@type.Slug()#aktualnosci">@type.Label()</a>
+                }
+                <a href="https://technikuminformatyczne.edu.pl/"
+                   target="_blank"
+                   rel="noopener noreferrer">
+                    Strona szkoły ↗
+                </a>
+            </nav>
+
+            <span class="site-footer__copyright">
+                © @DateTime.Now.Year ETI
+            </span>
+
+        </div>
+    </footer>
+</div>
+
+@code {
+    // Menu i stopka pokazują tylko te trzy główne rodzaje, niezależnie od liczby rodzajów w enumie.
+    private static readonly ArticleType[] MenuTypes =
+    {
+        ArticleType.Nowosci,
+        ArticleType.Wydarzenia,
+        ArticleType.Ogloszenia
+    };
+
+    // Zakładka wybrana adresem (/?typ=...), tylko na stronie głównej.
+    private ArticleType? ActiveType
+    {
+        get
+        {
+            var uri = new Uri(Nav.Uri);
+
+            if (uri.AbsolutePath != "/")
+            {
+                return null;
+            }
+
+            var query = QueryHelpers.ParseQuery(uri.Query);
+
+            if (query.TryGetValue("typ", out var value) &&
+                ArticleTypeExtensions.TryParseSlug(value.ToString(), out var type))
+            {
+                return type;
+            }
+
+            return null;
+        }
+    }
+
+    // „Strona główna” świeci się tylko wtedy, gdy nie wybrano żadnej zakładki.
+    private bool IsHomeActive =>
+        new Uri(Nav.Uri).AbsolutePath == "/" && ActiveType is null;
+}
