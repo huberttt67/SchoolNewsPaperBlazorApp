@@ -1,0 +1,960 @@
+﻿@page "/admin/substitutions"
+@page "/zastepstwa"
+@rendermode InteractiveServer
+@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.JSInterop
+@using SchoolNewspaperBlazorApp.Data
+
+@inject IDbContextFactory<NewspaperDbContext> DbFactory
+@inject AuthenticationStateProvider AuthStateProvider
+@inject ILogger<Substitutions> Logger
+@inject IJSRuntime JS
+
+<PageTitle>Zastępstwa | Gazetka ETI</PageTitle>
+
+<div class="sub-page">
+    <header class="sub-hero">
+        <div class="sub-hero__copy">
+            <a class="sub-back" href="/">← Strona główna</a>
+            <span class="sub-eyebrow">GAZETKA ETI · ORGANIZACJA ZAJĘĆ</span>
+            <h1>Zastępstwa</h1>
+            <p>Sprawdź klasę, numer lekcji, godziny i nauczycieli.</p>
+            <div class="sub-hero__meta">Aktualny plan szkoły · maksymalnie 8 lekcji</div>
+        </div>
+        <div class="sub-hero__symbol" aria-hidden="true">📚</div>
+    </header>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="sub-alert sub-alert--error">⚠ @errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="sub-alert sub-alert--success">✓ @successMessage</div>
+    }
+
+    @if (hasPermission)
+    {
+        <div class="sub-layout">
+            <section class="sub-panel sub-form-panel">
+                <div class="sub-panel__heading">
+                    <div class="sub-heading-icon">＋</div>
+                    <div>
+                        <span class="sub-kicker">
+                            @(editingSubstituteId.HasValue ? "EDYCJA ZASTĘPSTWA" : "NOWE ZASTĘPSTWO")
+                        </span>
+                        <h2>@(editingSubstituteId.HasValue ? "Edytuj zastępstwo" : "Dodaj do planu")</h2>
+                        <p>Wybierz klasę, obu nauczycieli i godzinę lekcji.</p>
+                    </div>
+                </div>
+
+                <EditForm Model="form" OnValidSubmit="SaveSubstituteAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="sub-form-grid">
+                        <label class="sub-field sub-field--wide">
+                            <span>Data zastępstwa</span>
+                            <InputDate @bind-Value="form.SubstituteDate" class="sub-input" />
+                            <ValidationMessage For="() => form.SubstituteDate" />
+                        </label>
+
+                        <label class="sub-field sub-field--wide">
+                            <span>Klasa</span>
+                            <select class="sub-input"
+                                    value="@form.ClassName"
+                                    @onchange="OnClassChanged">
+                                <option value="">Wybierz klasę…</option>
+                                @foreach (var className in classes)
+                                {
+                                    <option value="@className">@className</option>
+                                }
+                            </select>
+                            <ValidationMessage For="() => form.ClassName" />
+                        </label>
+
+                        <label class="sub-field sub-field--wide">
+                            <span>Nauczyciel zastępujący</span>
+                            <select class="sub-input"
+                                    value="@form.TeacherId"
+                                    @onchange="OnTeacherChanged">
+                                <option value="0">Wybierz nauczyciela…</option>
+                                @foreach (var teacher in teachers)
+                                {
+                                    <option value="@teacher.Id">
+@teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
+                                            ? " · brak przedmiotu"
+                                                                                : $" · {teacher.Subject}")
+                                    </option>
+                                }
+                            </select>
+
+                            @if (teachers.FirstOrDefault(t => t.Id == form.TeacherId) is { } selectedTeacher)
+                            {
+                                <small>
+                                    Przedmiot nauczyciela:
+                                    @(string.IsNullOrWhiteSpace(selectedTeacher.Subject)
+                                        ? "Nie podano"
+                                        : selectedTeacher.Subject)
+                                </small>
+                            }
+                        </label>
+
+                        <label class="sub-field sub-field--wide">
+                            <span>Nauczyciel, za którego jest zastępstwo</span>
+                            <select class="sub-input"
+                                    value="@(form.OriginalTeacherId?.ToString() ?? "")"
+                                    @onchange="OnOriginalTeacherChanged">
+                                <option value="">Wybierz nauczyciela…</option>
+                                @foreach (var teacher in teachers)
+                                {
+                                    <option value="@teacher.Id">
+@teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
+                                            ? " · brak przedmiotu"
+                                                                                : $" · {teacher.Subject}")
+                                    </option>
+                                }
+                            </select>
+
+                            @if (teachers.FirstOrDefault(t => t.Id == form.OriginalTeacherId) is { } originalTeacher)
+                            {
+                                <small>
+                                    Przedmiot nauczyciela:
+                                    @(string.IsNullOrWhiteSpace(originalTeacher.Subject)
+                                        ? "Nie podano"
+                                        : originalTeacher.Subject)
+                                </small>
+                            }
+                        </label>
+
+                        <label class="sub-field">
+                            <span>Numer lekcji</span>
+                            <select class="sub-input"
+                                    value="@form.LessonNumber"
+                                    @onchange="OnLessonChanged">
+                                @for (var lesson = 1; lesson <= 8; lesson++)
+                                {
+                                    <option value="@lesson">@lesson. lekcja</option>
+                                }
+                            </select>
+                        </label>
+
+                        <label class="sub-field">
+                            <span>Godzina rozpoczęcia</span>
+                            <InputText @bind-Value="startTime"
+                                       type="time"
+                                       class="sub-input" />
+                        </label>
+
+                        <label class="sub-field">
+                            <span>Godzina zakończenia</span>
+                            <InputText @bind-Value="endTime"
+                                       type="time"
+                                       class="sub-input" />
+                        </label>
+
+                        <label class="sub-field sub-field--wide">
+                            <span>Dodatkowe informacje (opcjonalnie)</span>
+                            <InputTextArea @bind-Value="form.Notes"
+                                           class="sub-input sub-textarea"
+                                           maxlength="500"
+                                           placeholder="Np. sala 204…" />
+                        </label>
+                    </div>
+
+                    <div class="sub-form-footer">
+                        <span>Maksymalnie 8 lekcji dziennie.</span>
+
+                        <div class="sub-form-actions">
+                            @if (editingSubstituteId.HasValue)
+                            {
+                                <button type="button"
+                                        class="sub-button sub-button--secondary"
+                                        @onclick="CancelEdit">
+                                    Anuluj
+                                </button>
+                            }
+
+                            <button class="sub-button"
+                                    type="submit"
+                                    disabled="@isSaving">
+                                @(isSaving
+                                    ? "Zapisuję…"
+                                    : editingSubstituteId.HasValue
+                                        ? "Zapisz zmiany"
+                                        : "＋ Dodaj zastępstwo")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+            </section>
+
+            <aside class="sub-panel sub-teachers-panel">
+                <div class="sub-panel__heading">
+                    <div class="sub-heading-icon">♙</div>
+                    <div>
+                        <span class="sub-kicker">BAZA KADRY</span>
+                        <h2>Nauczyciele</h2>
+                        <p>Dodawaj nauczycieli, przedmioty i edytuj dane kadry.</p>
+                    </div>
+                </div>
+
+                <EditForm Model="teacherForm" OnValidSubmit="SaveTeacherAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="sub-teacher-add">
+                        <label class="sub-field">
+                            <span>Imię i nazwisko</span>
+                            <InputText @bind-Value="teacherForm.FullName"
+                                       class="sub-input"
+                                       maxlength="120"
+                                       placeholder="Np. Anna Nowak" />
+                            <ValidationMessage For="() => teacherForm.FullName" />
+                        </label>
+
+                        <label class="sub-field">
+                            <span>Przedmiot nauczany</span>
+                            <InputText @bind-Value="teacherForm.Subject"
+                                       class="sub-input"
+                                       maxlength="100"
+                                       placeholder="Np. matematyka, informatyka" />
+                        </label>
+
+                        <div class="sub-form-actions">
+                            @if (editingTeacherId.HasValue)
+                            {
+                                <button type="button"
+                                        class="sub-button sub-button--secondary"
+                                        @onclick="CancelTeacherEdit">
+                                    Anuluj
+                                </button>
+                            }
+
+                            <button type="submit"
+                                    class="sub-button sub-button--secondary"
+                                    disabled="@isSavingTeacher">
+                                @(isSavingTeacher
+                                    ? "Zapisuję…"
+                                    : editingTeacherId.HasValue
+                                        ? "Zapisz nauczyciela"
+                                        : "＋ Dodaj nauczyciela")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+
+                <div class="sub-teacher-list">
+                    @if (teachers.Count == 0)
+                    {
+                        <div class="sub-mini-empty">
+                            Nie ma jeszcze nauczycieli. Dodaj pierwszego powyżej.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var teacher in teachers)
+                        {
+                            <div class="sub-teacher-row" @key="teacher.Id">
+                                <div class="sub-avatar">@Initials(teacher.FullName)</div>
+
+                                <div class="sub-teacher-info">
+                                    <strong>@teacher.FullName</strong>
+                                    <span>
+                                        @(string.IsNullOrWhiteSpace(teacher.Subject)
+                                            ? "Nie podano przedmiotu"
+                                            : teacher.Subject)
+                                    </span>
+                                </div>
+
+                                <button type="button"
+                                        class="sub-icon-button"
+                                        title="Edytuj nauczyciela"
+                                        @onclick="() => EditTeacher(teacher)">
+                                    ✎
+                                </button>
+
+                                <button type="button"
+                                        class="sub-icon-button"
+                                        title="Usuń nauczyciela"
+                                        @onclick="() => RemoveTeacherAsync(teacher)">
+                                    ×
+                                </button>
+                            </div>
+                        }
+                    }
+                </div>
+            </aside>
+        </div>
+    }
+    else
+    {
+        <div class="sub-public-note">
+            Poniżej znajdziesz aktualne zastępstwa. Zmiany w planie wprowadza administracja szkoły.
+        </div>
+    }
+
+    <section class="sub-panel sub-list-panel">
+        <div class="sub-list-header">
+            <div class="sub-panel__heading">
+                <div class="sub-heading-icon">☷</div>
+                <div>
+                    <span class="sub-kicker">AKTUALNY HARMONOGRAM</span>
+                    <h2>Zaplanowane zastępstwa</h2>
+                    <p>Lista uporządkowana według daty i numeru lekcji.</p>
+                </div>
+            </div>
+
+            <div class="sub-count">
+                <strong>@substitutions.Count</strong>
+                <span>zastępstw</span>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="sub-loading">
+                <span class="sub-spinner"></span> Wczytywanie planu…
+            </div>
+        }
+        else if (substitutions.Count == 0)
+        {
+            <div class="sub-empty">
+                <h3>Brak zaplanowanych zastępstw</h3>
+                <p>Gdy zostaną dodane, pojawią się tutaj.</p>
+            </div>
+        }
+        else
+        {
+            <div class="sub-table-wrap">
+                <table class="sub-table">
+                    <thead>
+                        <tr>
+                            <th>Data</th>
+                            <th>Klasa</th>
+                            <th>Lekcja</th>
+                            <th>Godziny</th>
+                            <th>Nauczyciel zastępujący</th>
+                            <th>Nauczyciel zastępowany</th>
+                            <th>Informacje</th>
+                            @if (hasPermission)
+                            {
+                                <th>Akcje</th>
+                            }
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        @foreach (var item in substitutions)
+                        {
+                            <tr @key="item.Id">
+                                <td>
+                                    <strong>@item.SubstituteDate.ToString("dd.MM.yyyy")</strong>
+                                    <small>@DayName(item.SubstituteDate)</small>
+                                </td>
+
+                                <td><strong>@item.ClassName</strong></td>
+
+                                <td>
+                                    <span class="sub-lesson-badge">@item.LessonNumber</span>
+                                </td>
+
+                                <td>
+                                    <strong>@item.StartTime.ToString(@"hh\:mm")</strong>
+                                    <small>– @item.EndTime.ToString(@"hh\:mm")</small>
+                                </td>
+
+                                <td>
+                                    <strong>@(item.Teacher?.FullName ?? "Nie podano")</strong>
+                                    <small>
+                                        @(string.IsNullOrWhiteSpace(item.Teacher?.Subject)
+                                            ? "Przedmiot niepodany"
+                                            : item.Teacher.Subject)
+                                    </small>
+                                </td>
+
+                                <td>
+                                    <strong>@(item.OriginalTeacher?.FullName ?? "Nie podano")</strong>
+                                    <small>
+                                        @(string.IsNullOrWhiteSpace(item.OriginalTeacher?.Subject)
+                                            ? "Przedmiot niepodany"
+                                            : item.OriginalTeacher.Subject)
+                                    </small>
+                                </td>
+
+                                <td>@(string.IsNullOrWhiteSpace(item.Notes) ? "—" : item.Notes)</td>
+
+                                @if (hasPermission)
+                                {
+                                    <td>
+                                        <div class="sub-form-actions">
+                                            <button type="button"
+                                                    class="sub-button sub-button--secondary"
+                                                    @onclick="() => EditSubstitute(item)">
+                                                Edytuj
+                                            </button>
+
+                                            <button type="button"
+                                                    class="sub-delete"
+                                                    @onclick="() => RemoveSubstituteAsync(item)">
+                                                Usuń
+                                            </button>
+                                        </div>
+                                    </td>
+                                }
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </section>
+</div>
+
+@code {
+    private bool hasPermission;
+    private bool isLoading = true;
+    private bool isSaving;
+    private bool isSavingTeacher;
+
+    private string? errorMessage;
+    private string? successMessage;
+
+    private string startTime = "08:00";
+    private string endTime = "08:45";
+
+    private int? editingSubstituteId;
+    private int? editingTeacherId;
+
+    private SubstituteForm form = new();
+    private TeacherForm teacherForm = new();
+
+    private List<Teacher> teachers = new();
+    private List<Substitute> substitutions = new();
+
+    private readonly string[] classes =
+    {
+        "1A", "1B", "1C", "1D", "2A", "2B", "2C", "2D",
+        "3A", "3B", "3C", "3D", "4A", "4B", "4C", "4D",
+        "5A", "5B", "5C", "5D", "1TA", "2TA", "3TA", "4TA", "5TA"
+    };
+
+    // Twój harmonogram lekcji.
+    private static readonly (string Start, string End)[] LessonTimes =
+    {
+        ("08:00", "08:45"), // 1. lekcja
+        ("08:50", "09:35"), // 2. lekcja
+        ("09:40", "10:25"), // 3. lekcja
+        ("10:30", "11:15"), // 4. lekcja
+        ("11:20", "12:05"), // 5. lekcja
+        ("12:25", "13:10"), // 6. lekcja
+        ("13:15", "14:00"), // 7. lekcja
+        ("14:05", "14:50")  // 8. lekcja
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+
+            hasPermission = user.Identity?.IsAuthenticated == true &&
+                user.Claims.Any(c =>
+                    c.Type == "permission" &&
+                    (c.Value == EnumPermission.Master.ToString() ||
+                     c.Value == EnumPermission.CreateAnnouncements.ToString() ||
+                     c.Value == EnumPermission.ManageUsers.ToString() ||
+                     c.Value == EnumPermission.AccessAdminPanel.ToString()));
+
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się załadować zastępstw.");
+            errorMessage = "Nie udało się załadować planu zastępstw.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadDataAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+
+        teachers = await db.Teachers
+            .AsNoTracking()
+            .Where(t => !t.IsDeleted)
+            .OrderBy(t => t.FullName)
+            .ToListAsync();
+
+        substitutions = await db.Substitutes
+            .AsNoTracking()
+            .Where(s => !s.IsDeleted)
+            .Include(s => s.Teacher)
+            .Include(s => s.OriginalTeacher)
+            .OrderBy(s => s.SubstituteDate)
+            .ThenBy(s => s.LessonNumber)
+            .ToListAsync();
+    }
+
+    private void OnClassChanged(ChangeEventArgs args)
+    {
+        form.ClassName = args.Value?.ToString() ?? string.Empty;
+    }
+
+    private void OnTeacherChanged(ChangeEventArgs args)
+    {
+        form.TeacherId = int.TryParse(args.Value?.ToString(), out var id)
+            ? id
+            : 0;
+    }
+
+    private void OnOriginalTeacherChanged(ChangeEventArgs args)
+    {
+        form.OriginalTeacherId = int.TryParse(args.Value?.ToString(), out var id)
+            ? id
+            : null;
+    }
+
+    // Po zmianie numeru lekcji automatycznie ustawiamy godziny
+    // zgodnie z harmonogramem. Godziny można potem ręcznie zmienić.
+    private void OnLessonChanged(ChangeEventArgs args)
+    {
+        if (!int.TryParse(args.Value?.ToString(), out var lesson) ||
+            lesson < 1 ||
+            lesson > LessonTimes.Length)
+        {
+            return;
+        }
+
+        form.LessonNumber = lesson;
+
+        var times = LessonTimes[lesson - 1];
+        startTime = times.Start;
+        endTime = times.End;
+    }
+
+    private void EditSubstitute(Substitute item)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingSubstituteId = item.Id;
+
+        form = new SubstituteForm
+        {
+            SubstituteDate = item.SubstituteDate,
+            ClassName = item.ClassName ?? string.Empty,
+            LessonNumber = item.LessonNumber,
+            TeacherId = item.TeacherId,
+            OriginalTeacherId = item.OriginalTeacherId,
+            Notes = item.Notes
+        };
+
+        // Przy edycji zachowujemy godziny zapisane w bazie.
+        startTime = item.StartTime.ToString(@"hh\:mm");
+        endTime = item.EndTime.ToString(@"hh\:mm");
+    }
+
+    private void CancelEdit()
+    {
+        editingSubstituteId = null;
+        form = new SubstituteForm();
+
+        startTime = "08:00";
+        endTime = "08:45";
+
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task SaveSubstituteAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (!hasPermission)
+        {
+            errorMessage = "Nie masz uprawnień do zarządzania zastępstwami.";
+            return;
+        }
+
+        if (form.LessonNumber is < 1 or > 8)
+        {
+            errorMessage = "Numer lekcji musi być od 1 do 8.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(form.ClassName) ||
+            !classes.Contains(form.ClassName))
+        {
+            errorMessage = "Wybierz klasę z listy.";
+            return;
+        }
+
+        if (form.TeacherId <= 0 ||
+            teachers.All(t => t.Id != form.TeacherId))
+        {
+            errorMessage = "Wybierz nauczyciela zastępującego.";
+            return;
+        }
+
+        if (form.OriginalTeacherId is null ||
+            teachers.All(t => t.Id != form.OriginalTeacherId.Value))
+        {
+            errorMessage = "Wybierz nauczyciela, za którego jest zastępstwo.";
+            return;
+        }
+
+        if (form.TeacherId == form.OriginalTeacherId.Value)
+        {
+            errorMessage = "Wybierz dwóch różnych nauczycieli.";
+            return;
+        }
+
+        if (!TimeSpan.TryParse(startTime, out var start) ||
+            !TimeSpan.TryParse(endTime, out var end) ||
+            end <= start)
+        {
+            errorMessage = "Godzina zakończenia musi być późniejsza niż rozpoczęcia.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            Substitute? item;
+
+            if (editingSubstituteId.HasValue)
+            {
+                item = await db.Substitutes.FirstOrDefaultAsync(
+                    s => s.Id == editingSubstituteId.Value && !s.IsDeleted);
+
+                if (item is null)
+                {
+                    errorMessage = "Nie znaleziono zastępstwa do edycji.";
+                    return;
+                }
+            }
+            else
+            {
+                item = new Substitute
+                {
+                    Reason = "Zastępstwo",
+                    CreatedAt = DateTime.Now
+                };
+
+                db.Substitutes.Add(item);
+            }
+
+            item.SubstituteDate = form.SubstituteDate.Date;
+            item.ClassName = form.ClassName;
+            item.LessonNumber = form.LessonNumber;
+            item.StartTime = start;
+            item.EndTime = end;
+            item.TeacherId = form.TeacherId;
+            item.OriginalTeacherId = form.OriginalTeacherId.Value;
+            item.Notes = string.IsNullOrWhiteSpace(form.Notes)
+                ? null
+                : form.Notes.Trim();
+
+            await db.SaveChangesAsync();
+            await LoadDataAsync();
+
+            successMessage = editingSubstituteId.HasValue
+                ? "Zapisano zmiany w zastępstwie."
+                : "Zastępstwo zostało dodane.";
+
+            editingSubstituteId = null;
+            form = new SubstituteForm();
+
+            startTime = "08:00";
+            endTime = "08:45";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się zapisać zastępstwa.");
+            errorMessage = "Nie udało się zapisać zastępstwa. Sprawdź model i konfigurację bazy danych.";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private void EditTeacher(Teacher teacher)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingTeacherId = teacher.Id;
+
+        teacherForm = new TeacherForm
+        {
+            FullName = teacher.FullName,
+            Subject = teacher.Subject
+        };
+    }
+
+    private void CancelTeacherEdit()
+    {
+        editingTeacherId = null;
+        teacherForm = new TeacherForm();
+
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task SaveTeacherAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        if (!hasPermission)
+        {
+            errorMessage = "Nie masz uprawnień do zarządzania nauczycielami.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(teacherForm.FullName))
+        {
+            errorMessage = "Podaj imię i nazwisko nauczyciela.";
+            return;
+        }
+
+        isSavingTeacher = true;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var name = teacherForm.FullName.Trim();
+            var subject = string.IsNullOrWhiteSpace(teacherForm.Subject)
+                ? null
+                : teacherForm.Subject.Trim();
+
+            var duplicate = await db.Teachers.AnyAsync(t =>
+                t.FullName.ToLower() == name.ToLower() &&
+                !t.IsDeleted &&
+                (!editingTeacherId.HasValue || t.Id != editingTeacherId.Value));
+
+            if (duplicate)
+            {
+                errorMessage = "Taki nauczyciel już znajduje się na liście.";
+                return;
+            }
+
+            if (editingTeacherId.HasValue)
+            {
+                var teacher = await db.Teachers.FirstOrDefaultAsync(
+                    t => t.Id == editingTeacherId.Value && !t.IsDeleted);
+
+                if (teacher is null)
+                {
+                    errorMessage = "Nie znaleziono nauczyciela.";
+                    return;
+                }
+
+                teacher.FullName = name;
+                teacher.Subject = subject;
+
+                successMessage = "Zapisano zmiany nauczyciela.";
+            }
+            else
+            {
+                db.Teachers.Add(new Teacher
+                {
+                    FullName = name,
+                    Subject = subject
+                });
+
+                successMessage = "Dodano nauczyciela.";
+            }
+
+            await db.SaveChangesAsync();
+            await LoadDataAsync();
+
+            editingTeacherId = null;
+            teacherForm = new TeacherForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się zapisać nauczyciela.");
+            errorMessage = "Nie udało się zapisać nauczyciela.";
+        }
+        finally
+        {
+            isSavingTeacher = false;
+        }
+    }
+
+    private async Task RemoveTeacherAsync(Teacher teacher)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        bool confirmed;
+
+        try
+        {
+            confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Usunąć nauczyciela „{teacher.FullName}” z aktywnej listy?");
+        }
+        catch
+        {
+            errorMessage = "Nie udało się wyświetlić potwierdzenia.";
+            return;
+        }
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var tracked = await db.Teachers.FirstOrDefaultAsync(
+                t => t.Id == teacher.Id && !t.IsDeleted);
+
+            if (tracked is null)
+            {
+                errorMessage = "Nie znaleziono nauczyciela.";
+                return;
+            }
+
+            // Usunięcie logiczne — rekord pozostaje w bazie.
+            tracked.IsDeleted = true;
+
+            await db.SaveChangesAsync();
+
+            if (editingTeacherId == teacher.Id)
+            {
+                CancelTeacherEdit();
+            }
+
+            await LoadDataAsync();
+
+            successMessage = "Nauczyciel został usunięty z aktywnej listy.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się usunąć nauczyciela.");
+            errorMessage = "Nie udało się usunąć nauczyciela. Może być przypisany do zastępstwa.";
+        }
+    }
+
+    private async Task RemoveSubstituteAsync(Substitute item)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        bool confirmed;
+
+        try
+        {
+            confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                "Usunąć to zastępstwo z planu?");
+        }
+        catch
+        {
+            errorMessage = "Nie udało się wyświetlić potwierdzenia.";
+            return;
+        }
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var tracked = await db.Substitutes.FirstOrDefaultAsync(
+                s => s.Id == item.Id && !s.IsDeleted);
+
+            if (tracked is null)
+            {
+                errorMessage = "Nie znaleziono zastępstwa.";
+                return;
+            }
+
+            // Usunięcie logiczne — rekord pozostaje w bazie.
+            tracked.IsDeleted = true;
+
+            await db.SaveChangesAsync();
+
+            if (editingSubstituteId == item.Id)
+            {
+                CancelEdit();
+            }
+
+            await LoadDataAsync();
+
+            successMessage = "Zastępstwo usunięto z planu.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się usunąć zastępstwa.");
+            errorMessage = "Nie udało się usunąć zastępstwa.";
+        }
+    }
+
+    private static string Initials(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        return parts.Length == 0
+            ? "N"
+            : string.Concat(parts.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+
+    private static string DayName(DateTime date)
+    {
+        return date.ToString(
+            "dddd",
+            new System.Globalization.CultureInfo("pl-PL"));
+    }
+
+    private sealed class SubstituteForm
+    {
+        public DateTime SubstituteDate { get; set; } = DateTime.Today;
+
+        [System.ComponentModel.DataAnnotations.Range(1, 8)]
+        public int LessonNumber { get; set; } = 1;
+
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Wybierz klasę.")]
+        public string ClassName { get; set; } = string.Empty;
+
+        public int TeacherId { get; set; }
+
+        public int? OriginalTeacherId { get; set; }
+
+        [System.ComponentModel.DataAnnotations.MaxLength(500)]
+        public string? Notes { get; set; }
+    }
+
+    private sealed class TeacherForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Podaj imię i nazwisko.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(120)]
+        public string FullName { get; set; } = string.Empty;
+
+        [System.ComponentModel.DataAnnotations.MaxLength(100)]
+        public string? Subject { get; set; }
+    }
+}

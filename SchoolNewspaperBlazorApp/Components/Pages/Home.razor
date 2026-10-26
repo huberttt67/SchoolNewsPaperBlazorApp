@@ -1,8 +1,12 @@
 ﻿@page "/"
+
 @using SchoolNewspaperBlazorApp.Components.Components
 @using SchoolNewspaperBlazorApp.Data
 @using SchoolNewspaperBlazorApp.Interfaces.Service
+@using Microsoft.EntityFrameworkCore
+
 @inject IArticleService articleService
+@inject IDbContextFactory<NewspaperDbContext> DbFactory
 
 <PageTitle>@SectionTitle | Gazetka ETI</PageTitle>
 
@@ -16,9 +20,11 @@
         tworzone przez uczniów.
     </p>
 
-    <a href="/#aktualnosci" class="home-hero__button">
-        Czytaj aktualności <span aria-hidden="true">→</span>
-    </a>
+    <div class="home-hero__actions">
+        <a href="/#aktualnosci" class="home-hero__button">
+            Czytaj aktualności <span aria-hidden="true">→</span>
+        </a>
+    </div>
 </section>
 
 <div class="section-heading" id="aktualnosci">
@@ -28,14 +34,15 @@
     </div>
 </div>
 
-<nav class="article-tabs" aria-label="Filtr artykułów według rodzaju">
+<nav class="article-tabs" aria-label="Filtr treści">
     <a href="/#aktualnosci"
-       class="article-tab @(ActiveType is null ? "is-active" : "")"
-       aria-current="@(ActiveType is null ? "page" : null)">
+       class="article-tab @(ActiveType is null && !IsSubstitutionsTab ? "is-active" : "")"
+       aria-current="@(ActiveType is null && !IsSubstitutionsTab ? "page" : null)">
         Wszystkie
     </a>
 
-    @foreach (var type in Enum.GetValues<ArticleType>())
+    @foreach (var type in Enum.GetValues<ArticleType>()
+        .Where(t => t != ArticleType.Substitute))
     {
         <a href="/?typ=@type.Slug()#aktualnosci"
            class="article-tab @(ActiveType == type ? "is-active" : "")"
@@ -43,9 +50,81 @@
             @type.Label()
         </a>
     }
+
+    <a href="/?typ=zastepstwa#aktualnosci"
+       class="article-tab @(IsSubstitutionsTab ? "is-active" : "")"
+       aria-current="@(IsSubstitutionsTab ? "page" : null)">
+        Zastępstwa
+    </a>
 </nav>
 
-@if (articles.Count > 0)
+@if (IsSubstitutionsTab)
+{
+    @if (substitutionsLoading)
+    {
+        <div class="type-empty">
+            <p>Wczytywanie planu zastępstw…</p>
+        </div>
+    }
+    else if (substitutions.Count == 0)
+    {
+        <div class="type-empty">
+            <span aria-hidden="true">▤</span>
+            <h3>Brak zaplanowanych zastępstw</h3>
+            <p>Gdy administracja doda zastępstwa, pojawią się tutaj.</p>
+        </div>
+    }
+    else
+    {
+        <div class="home-substitutions__grid">
+            @foreach (var item in substitutions)
+            {
+                <article class="home-substitution-card" @key="item.Id">
+                    <div class="home-substitution-card__date">
+                        <strong>@item.SubstituteDate.ToString("dd")</strong>
+                        <span>
+                            @item.SubstituteDate.ToString(
+                                "MMM",
+                                new System.Globalization.CultureInfo("pl-PL"))
+                        </span>
+                    </div>
+
+                    <div class="home-substitution-card__body">
+                        <div class="home-substitution-card__lesson">
+                            @item.LessonNumber. lekcja ·
+                            @item.StartTime.ToString(@"hh\:mm")–@item.EndTime.ToString(@"hh\:mm")
+                        </div>
+
+                        <h3>@(item.Teacher?.FullName ?? "Nie podano nauczyciela")</h3>
+
+                        <p>
+                            Zastępuje:
+                            <strong>@(item.OriginalTeacher?.FullName ?? "nie podano")</strong>
+                        </p>
+
+                        @if (!string.IsNullOrWhiteSpace(item.ClassName))
+                        {
+                            <p>
+                                Klasa: <strong>@item.ClassName</strong>
+                            </p>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.Reason))
+                        {
+                            <span>@item.Reason</span>
+                        }
+
+                        @if (!string.IsNullOrWhiteSpace(item.Notes))
+                        {
+                            <p>@item.Notes</p>
+                        }
+                    </div>
+                </article>
+            }
+        </div>
+    }
+}
+else if (articles.Count > 0)
 {
     <ArticleCard Articles="articles" permissions="false" />
 }
@@ -58,22 +137,30 @@ else
     </div>
 }
 
-@code
-{
-    // Filtr wybierany adresem, np. /?typ=wydarzenia (czyli też /?typ=Wydarzenia).
-    // Brak parametru albo nieznana wartość = zakładka „Wszystkie”.
+@code {
     [SupplyParameterFromQuery(Name = "typ")]
     public string? Typ { get; set; }
 
     private List<Article> articles = new();
+    private List<Substitute> substitutions = new();
+
+    private bool substitutionsLoading;
 
     private ArticleType? ActiveType { get; set; }
 
+    private bool IsSubstitutionsTab =>
+        string.Equals(Typ, "zastepstwa", StringComparison.OrdinalIgnoreCase);
+
     private string SectionTitle =>
-        ActiveType?.Label() ?? "Aktualności";
+        IsSubstitutionsTab
+            ? "Zastępstwa"
+            : ActiveType?.Label() ?? "Aktualności";
 
     private string SectionDescription =>
-        ActiveType?.Description() ?? "Wszystkie artykuły z życia naszej szkoły w jednym miejscu.";
+        IsSubstitutionsTab
+            ? "Aktualny plan zastępstw — daty, godziny i nauczyciele."
+            : ActiveType?.Description()
+                ?? "Wszystkie artykuły z życia naszej szkoły w jednym miejscu.";
 
     private string EmptyMessage =>
         ActiveType?.EmptyText() ?? "Nie ma jeszcze żadnych artykułów.";
@@ -82,16 +169,42 @@ else
     {
         ArticleType? selected = null;
 
-        if (ArticleTypeExtensions.TryParseSlug(Typ, out var parsed))
+        if (!IsSubstitutionsTab &&
+            ArticleTypeExtensions.TryParseSlug(Typ, out var parsed))
         {
             selected = parsed;
         }
 
         ActiveType = selected;
 
-        // Artykuły zawsze od najnowszych (sortowanie robi repozytorium).
         articles = selected is { } type
             ? await articleService.GetArticlesByTypeAsync(type)
             : await articleService.GetAllArticlesAsync();
+
+        if (!IsSubstitutionsTab)
+        {
+            substitutions = new();
+            substitutionsLoading = false;
+            return;
+        }
+
+        substitutionsLoading = true;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            substitutions = await db.Substitutes
+                .Include(s => s.Teacher)
+                .Include(s => s.OriginalTeacher)
+                .AsNoTracking()
+                .OrderBy(s => s.SubstituteDate)
+                .ThenBy(s => s.LessonNumber)
+                .ToListAsync();
+        }
+        finally
+        {
+            substitutionsLoading = false;
+        }
     }
 }

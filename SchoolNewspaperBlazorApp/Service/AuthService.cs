@@ -1,5 +1,4 @@
-﻿
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using SchoolNewspaperBlazorApp.Data;
 using SchoolNewspaperBlazorApp.Interfaces.Repository;
 using SchoolNewspaperBlazorApp.Interfaces.Service;
@@ -75,7 +74,10 @@ namespace SchoolNewspaperBlazorApp.Service
             {
                 Login = login,
                 Email = email,
-                Haslo = string.Empty
+                Haslo = string.Empty,
+
+                // Hasło nadane przez administratora jest tymczasowe.
+                MustChangePassword = true
             };
 
             // Nowe hasło zapisujemy wyłącznie jako hash.
@@ -375,11 +377,109 @@ namespace SchoolNewspaperBlazorApp.Service
 
             await _authRepository.SetPasswordHashAsync(
                 viewerId,
-                newPasswordHash);
+                newPasswordHash,
+                false);
 
             _logger.LogInformation(
                 "Użytkownik {UserId} zmienił własne hasło.",
                 viewerId);
+        }
+
+        // Zmiana hasła tymczasowego po pierwszym logowaniu. Identyfikator
+        // pochodzi z ciasteczka logowania (endpoint /auth/change-password).
+        public async Task<string?> ChangeTemporaryPasswordAsync(
+            int userId,
+            string currentPassword,
+            string newPassword)
+        {
+            var user = await _authRepository.GetByIdAsync(userId);
+
+            if (user == null || string.IsNullOrEmpty(user.Haslo))
+            {
+                _logger.LogWarning(
+                    "Zmiana hasła tymczasowego: nie znaleziono aktywnego konta {UserId}.",
+                    userId);
+                return "current";
+            }
+
+            PasswordVerificationResult result;
+
+            try
+            {
+                result = _passwordHasher.VerifyHashedPassword(
+                    user,
+                    user.Haslo,
+                    currentPassword ?? string.Empty);
+            }
+            catch (FormatException)
+            {
+                result = PasswordVerificationResult.Failed;
+            }
+
+            if (result == PasswordVerificationResult.Failed)
+            {
+                _logger.LogWarning(
+                    "Zmiana hasła tymczasowego: błędne hasło użytkownika {UserId}.",
+                    userId);
+                return "current";
+            }
+
+            if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 8)
+            {
+                return "short";
+            }
+
+            if (newPassword == currentPassword)
+            {
+                return "same";
+            }
+
+            var hash = _passwordHasher.HashPassword(user, newPassword);
+
+            await _authRepository.SetPasswordHashAsync(userId, hash, false);
+
+            _logger.LogInformation(
+                "Użytkownik {UserId} zmienił hasło tymczasowe.",
+                userId);
+
+            return null;
+        }
+
+        // Administrator ustawia hasło tymczasowe cudzemu kontu. Obowiązują te
+        // same reguły co przy edycji konta (AuthorizeManageAsync): zwykły
+        // użytkownik nie rusza kont Master, Master nie rusza innych Master.
+        // Własne hasło zmienia się osobną opcją (z podaniem obecnego hasła).
+        public async Task SetTemporaryPasswordAsync(
+            int userId,
+            string temporaryPassword)
+        {
+            var target = await AuthorizeManageAsync(userId);
+
+            var viewerId =
+                await _permissionService.GetCurrentUserIdAsync();
+
+            if (userId == viewerId)
+            {
+                throw new UnauthorizedAccessException(
+                    "Własne hasło zmienisz w opcji „Zmień własne hasło”.");
+            }
+
+            if (string.IsNullOrWhiteSpace(temporaryPassword) ||
+                temporaryPassword.Length < 8)
+            {
+                throw new ArgumentException(
+                    "Hasło tymczasowe musi mieć co najmniej 8 znaków.");
+            }
+
+            // Zapisujemy wyłącznie hash; hasło nie trafia do logów.
+            var hash = _passwordHasher.HashPassword(target, temporaryPassword);
+
+            await _authRepository.SetPasswordHashAsync(userId, hash, true);
+
+            _logger.LogInformation(
+                "Użytkownik {UserId} ustawił hasło tymczasowe dla konta {TargetUserId}.",
+                viewerId,
+                userId);
         }
 
         // Master: może edytować własne konto i konta niebędące Master.

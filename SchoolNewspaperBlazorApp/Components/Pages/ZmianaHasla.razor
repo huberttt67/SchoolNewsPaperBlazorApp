@@ -1,0 +1,138 @@
+﻿@page "/zmiana-hasla"
+
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.WebUtilities
+@attribute [Authorize]
+
+@inject NavigationManager Navigation
+
+<PageTitle>Zmiana hasła | Gazetka ETI</PageTitle>
+
+<div class="login-page">
+    <aside class="login-side">
+        <div class="login-side__brand">
+            <span class="login-side__logo-wrap">
+                <img src="logo.png" alt="Logo ETI" class="login-side__logo" />
+            </span>
+
+            <div>
+                <div class="login-side__name">
+                    GAZETKA <span>ETI</span>
+                </div>
+                <div class="login-side__tagline">
+                    Szkolny portal informacyjny
+                </div>
+            </div>
+        </div>
+
+        <div class="login-side__content">
+            <span class="login-side__eyebrow">Pierwsze logowanie</span>
+
+            <h2>Ustaw własne hasło.</h2>
+
+            <p>
+                Hasło, które dostałeś od administratora, jest tymczasowe.
+                Zanim przejdziesz dalej, ustaw hasło, które znasz tylko Ty.
+            </p>
+        </div>
+
+        <div class="login-side__footer">
+            © @DateTime.Now.Year Gazetka ETI
+        </div>
+    </aside>
+
+    <main class="login-panel">
+        <a href="/auth/logout" class="login-back">
+            <span aria-hidden="true">←</span>
+            Wyloguj się
+        </a>
+
+        <div class="login-card">
+            <div class="login-heading">
+                <h1>Zmień hasło tymczasowe</h1>
+                <p>Wpisz hasło od administratora i ustaw nowe (min. 8 znaków).</p>
+            </div>
+
+            <form action="/auth/change-password" method="post">
+                <div class="login-field">
+                    <label for="current-password">Hasło tymczasowe</label>
+
+                    <div class="login-input-wrapper">
+                        <input id="current-password"
+                               name="CurrentPassword"
+                               type="password"
+                               class="login-input"
+                               placeholder="Hasło od administratora"
+                               autocomplete="current-password"
+                               required />
+                    </div>
+                </div>
+
+                <div class="login-field">
+                    <label for="new-password">Nowe hasło</label>
+
+                    <div class="login-input-wrapper">
+                        <input id="new-password"
+                               name="NewPassword"
+                               type="password"
+                               class="login-input"
+                               placeholder="Co najmniej 8 znaków"
+                               autocomplete="new-password"
+                               minlength="8"
+                               required />
+                    </div>
+                </div>
+
+                <div class="login-field">
+                    <label for="confirm-password">Powtórz nowe hasło</label>
+
+                    <div class="login-input-wrapper">
+                        <input id="confirm-password"
+                               name="ConfirmPassword"
+                               type="password"
+                               class="login-input"
+                               placeholder="Wpisz nowe hasło jeszcze raz"
+                               autocomplete="new-password"
+                               minlength="8"
+                               required />
+                    </div>
+                </div>
+
+                @if (ErrorText is not null)
+                {
+                    <div class="login-error" role="alert">
+                        @ErrorText
+                    </div>
+                }
+
+                <button type="submit" class="login-button">
+                    Zapisz nowe hasło
+                    <span aria-hidden="true">→</span>
+                </button>
+            </form>
+        </div>
+    </main>
+</div>
+
+@code {
+    private string? Error { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var query = QueryHelpers.ParseQuery(new Uri(Navigation.Uri).Query);
+
+        Error = query.TryGetValue("error", out var error)
+            ? error.ToString()
+            : null;
+    }
+
+    private string? ErrorText => Error switch
+    {
+        "current" => "Obecne (tymczasowe) hasło jest nieprawidłowe.",
+        "short" => "Nowe hasło musi mieć co najmniej 8 znaków.",
+        "same" => "Nowe hasło musi być inne niż tymczasowe.",
+        "mismatch" => "Podane nowe hasła nie są takie same.",
+        null or "" => null,
+        _ => "Nie udało się zmienić hasła. Spróbuj ponownie."
+    };
+}

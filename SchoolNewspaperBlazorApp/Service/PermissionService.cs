@@ -195,6 +195,14 @@ namespace SchoolNewspaperBlazorApp.Service
                     "Musisz być zalogowany, aby wykonać tę operację.");
             }
 
+            // Dopóki użytkownik nie zmieni hasła tymczasowego, serwisy
+            // odmawiają wykonania jakichkolwiek operacji.
+            if (user.HasClaim("must_change_password", "1"))
+            {
+                throw new UnauthorizedAccessException(
+                    "Najpierw musisz zmienić hasło tymczasowe.");
+            }
+
             var idValue = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (!int.TryParse(idValue, out var userId))

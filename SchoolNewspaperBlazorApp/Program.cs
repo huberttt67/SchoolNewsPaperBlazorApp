@@ -1,5 +1,4 @@
-﻿
-using Microsoft.AspNetCore.Authentication;
+﻿using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using SchoolNewspaperBlazorApp.Components;
@@ -83,6 +82,12 @@ namespace SchoolNewspaperBlazorApp
             builder.Services.AddScoped<
                 IPermissionService, PermissionService>();
 
+            // Moduł zastępstw.
+            builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
+            builder.Services.AddScoped<ISubstituteRepository, SubstituteRepository>();
+            builder.Services.AddScoped<ITeacherService, TeacherService>();
+            builder.Services.AddScoped<ISubstituteService, SubstituteService>();
+
             var app = builder.Build();
 
             if (!app.Environment.IsDevelopment())
@@ -108,6 +113,32 @@ namespace SchoolNewspaperBlazorApp
 
 
             app.UseAuthentication();
+
+            // Użytkownik z hasłem tymczasowym może otworzyć wyłącznie stronę
+            // zmiany hasła, wylogowanie i zasoby techniczne Blazora.
+            app.Use(async (context, next) =>
+            {
+                if (context.User.Identity?.IsAuthenticated == true &&
+                    context.User.HasClaim("must_change_password", "1"))
+                {
+                    var path = context.Request.Path;
+
+                    var allowed =
+                        path.StartsWithSegments("/zmiana-hasla") ||
+                        path.StartsWithSegments("/auth") ||
+                        path.StartsWithSegments("/_framework") ||
+                        path.StartsWithSegments("/_blazor");
+
+                    if (!allowed)
+                    {
+                        context.Response.Redirect("/zmiana-hasla");
+                        return;
+                    }
+                }
+
+                await next();
+            });
+
             app.UseAuthorization();
 
             app.MapPost("/auth/login", async (
@@ -161,6 +192,13 @@ namespace SchoolNewspaperBlazorApp
                         new Claim("permission", permission.ToString()));
                 }
 
+                // Hasło tymczasowe: do czasu zmiany dostępna jest tylko
+                // strona zmiany hasła (wymusza to middleware poniżej).
+                if (user.MustChangePassword)
+                {
+                    claims.Add(new Claim("must_change_password", "1"));
+                }
+
                 var identity = new ClaimsIdentity(
                     claims,
                     CookieAuthenticationDefaults.AuthenticationScheme);
@@ -170,6 +208,65 @@ namespace SchoolNewspaperBlazorApp
                 await context.SignInAsync(
                     CookieAuthenticationDefaults.AuthenticationScheme,
                     principal);
+
+                if (user.MustChangePassword)
+                {
+                    return Results.Redirect("/zmiana-hasla");
+                }
+
+                return Results.Redirect("/adminPanel?toast=login");
+            });
+
+            app.MapPost("/auth/change-password", async (
+                HttpContext context,
+                IAuthService authService) =>
+            {
+                if (context.User.Identity?.IsAuthenticated != true)
+                {
+                    return Results.Redirect("/login");
+                }
+
+                var idValue = context.User
+                    .FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+                if (!int.TryParse(idValue, out var userId))
+                {
+                    return Results.Redirect("/login");
+                }
+
+                var form = await context.Request.ReadFormAsync();
+
+                var current = form["CurrentPassword"].ToString();
+                var newPassword = form["NewPassword"].ToString();
+                var confirm = form["ConfirmPassword"].ToString();
+
+                if (newPassword != confirm)
+                {
+                    return Results.Redirect("/zmiana-hasla?error=mismatch");
+                }
+
+                var error = await authService.ChangeTemporaryPasswordAsync(
+                    userId,
+                    current,
+                    newPassword);
+
+                if (error is not null)
+                {
+                    return Results.Redirect($"/zmiana-hasla?error={error}");
+                }
+
+                // Odświeżamy ciasteczko bez znacznika „hasło tymczasowe”.
+                var claims = context.User.Claims
+                    .Where(c => c.Type != "must_change_password")
+                    .ToList();
+
+                var identity = new ClaimsIdentity(
+                    claims,
+                    CookieAuthenticationDefaults.AuthenticationScheme);
+
+                await context.SignInAsync(
+                    CookieAuthenticationDefaults.AuthenticationScheme,
+                    new ClaimsPrincipal(identity));
 
                 return Results.Redirect("/adminPanel?toast=login");
             });

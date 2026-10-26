@@ -141,6 +141,9 @@ namespace SchoolNewspaperBlazorApp.Migrations
                     .IsRequired()
                     .HasColumnType("nvarchar(max)");
 
+                b.Property<bool>("MustChangePassword")
+                    .HasColumnType("bit");
+
                 b.HasKey("Id");
 
                 b.HasIndex("Email")

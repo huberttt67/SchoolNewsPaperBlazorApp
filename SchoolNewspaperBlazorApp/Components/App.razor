@@ -14,6 +14,7 @@
 
 <body>
     <Routes />
+    <script src="article-editor.js"></script>
     <script src="_framework/blazor.web.js"></script>
     @((MarkupString)ToastScript)
 </body>
@@ -21,8 +22,6 @@
 </html>
 
 @code {
-    // Skrypt powiadomień (toastów). Wstawiany jako surowy HTML,
-    // bo Razor nie pozwala na zwykłe <script> w komponentach.
     private const string ToastScript = @"<script>
 (function () {
     if (window.__toastInit) { return; }
@@ -51,7 +50,6 @@
         var message = item.message;
         var type = item.type;
         var duration = item.duration;
-
         var container = getContainer();
 
         var toast = document.createElement('div');
@@ -96,7 +94,10 @@
             toast.classList.add('eti-toast--hide');
 
             setTimeout(function () {
-                if (toast.parentNode) { toast.parentNode.removeChild(toast); }
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+
                 visibleCount--;
                 showNext();
             }, 300);
@@ -106,7 +107,6 @@
         timer = setTimeout(remove, duration);
     }
 
-    // Pokazuje kolejne powiadomienia z kolejki, dopóki jest wolne miejsce.
     function showNext() {
         while (visibleCount < MAX_VISIBLE && waiting.length > 0) {
             displayToast(waiting.shift());
@@ -119,7 +119,12 @@
         type = ICONS[type] ? type : 'info';
         duration = duration || (type === 'error' ? 5500 : 3800);
 
-        waiting.push({ message: message, type: type, duration: duration });
+        waiting.push({
+            message: message,
+            type: type,
+            duration: duration
+        });
+
         showNext();
     };
 
@@ -136,17 +141,30 @@
         if (!key && !hasError) { return; }
 
         if (hasError) {
-            window.showToast('Niepoprawny email lub hasło.', 'error');
+            window.showToast(
+                'Niepoprawny email lub hasło.',
+                'error'
+            );
         } else if (TOAST_MESSAGES[key]) {
-            window.showToast(TOAST_MESSAGES[key].text, TOAST_MESSAGES[key].type);
+            window.showToast(
+                TOAST_MESSAGES[key].text,
+                TOAST_MESSAGES[key].type
+            );
         }
 
         params.delete('toast');
         params.delete('error');
 
         var qs = params.toString();
-        var url = window.location.pathname + (qs ? '?' + qs : '') + window.location.hash;
-        window.history.replaceState(window.history.state, '', url);
+        var url = window.location.pathname +
+            (qs ? '?' + qs : '') +
+            window.location.hash;
+
+        window.history.replaceState(
+            window.history.state,
+            '',
+            url
+        );
     }
 
     if (document.readyState === 'loading') {
@@ -156,7 +174,10 @@
     }
 
     if (window.Blazor && window.Blazor.addEventListener) {
-        window.Blazor.addEventListener('enhancednavigationend', handleQuery);
+        window.Blazor.addEventListener(
+            'enhancednavigationend',
+            handleQuery
+        );
     }
 })();
 </script>";

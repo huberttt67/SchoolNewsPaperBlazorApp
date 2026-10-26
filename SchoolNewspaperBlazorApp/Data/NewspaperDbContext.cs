@@ -1,4 +1,4 @@
-﻿﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 
 namespace SchoolNewspaperBlazorApp.Data
 {
@@ -19,6 +19,10 @@ namespace SchoolNewspaperBlazorApp.Data
         public DbSet<Permission> Permissions => Set<Permission>();
 
         public DbSet<UserPermission> UserPermissions => Set<UserPermission>();
+
+        public DbSet<Teacher> Teachers => Set<Teacher>();
+
+        public DbSet<Substitute> Substitutes => Set<Substitute>();
 
         protected override void OnModelCreating(ModelBuilder mb)
         {
@@ -45,26 +49,48 @@ namespace SchoolNewspaperBlazorApp.Data
                 .HasIndex(p => p.Name)
                 .IsUnique();
 
-            // Jeden adres e-mail = jedno konto (egzekwowane przez bazę danych).
+            // Jeden adres e-mail = jedno konto.
             mb.Entity<User>()
                 .Property(u => u.Email)
                 .HasMaxLength(256);
 
-            // Soft Delete: unikalność e-maila dotyczy tylko aktywnych kont,
-            // dzięki temu e-mail usuniętego logicznie konta można użyć ponownie.
+            // Unikalny e-mail tylko dla aktywnych kont.
             mb.Entity<User>()
                 .HasIndex(u => u.Email)
                 .IsUnique()
                 .HasFilter("[IsDeleted] = 0");
 
-            // Soft Delete: zwykłe zapytania nie zwracają usuniętych rekordów.
-            // Dostęp do nich możliwy tylko jawnie przez IgnoreQueryFilters().
-            mb.Entity<Article>().HasQueryFilter(a => !a.IsDeleted);
-            mb.Entity<MediaFile>().HasQueryFilter(f => !f.IsDeleted);
-            mb.Entity<User>().HasQueryFilter(u => !u.IsDeleted);
+            // Usuwanie logiczne.
+            mb.Entity<Article>()
+                .HasQueryFilter(a => !a.IsDeleted);
 
-            // Uprawnienia usuniętego logicznie konta są niewidoczne
-            // (konto bez uprawnień nie ma dostępu do panelu).
+            mb.Entity<Teacher>()
+                .HasQueryFilter(t => !t.IsDeleted);
+
+            mb.Entity<Substitute>()
+                .HasQueryFilter(s => !s.IsDeleted);
+
+            mb.Entity<MediaFile>()
+                .HasQueryFilter(f => !f.IsDeleted);
+
+            mb.Entity<User>()
+                .HasQueryFilter(u => !u.IsDeleted);
+
+            // Nauczyciel prowadzący zastępstwo.
+            mb.Entity<Substitute>()
+                .HasOne(s => s.Teacher)
+                .WithMany()
+                .HasForeignKey(s => s.TeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Nauczyciel, za którego odbywa się zastępstwo.
+            mb.Entity<Substitute>()
+                .HasOne(s => s.OriginalTeacher)
+                .WithMany()
+                .HasForeignKey(s => s.OriginalTeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Uprawnienia usuniętego logicznie konta są niewidoczne.
             mb.Entity<UserPermission>()
                 .HasQueryFilter(up => !up.User.IsDeleted);
         }

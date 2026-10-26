@@ -242,6 +242,25 @@ else
                         <span>→</span>
                     </span>
                 </button>
+
+                <button type="button"
+                        class="admin-action"
+                        @onclick="OpenSubstitutions">
+                    <span class="admin-action__number">07</span>
+                    <span class="admin-action__icon">📅</span>
+
+                    <strong>Zastępstwa</strong>
+
+                    <span class="admin-action__description">
+                        Dodawaj zastępstwa, wybieraj nauczycieli,
+                        ustalaj numery lekcji i godziny.
+                    </span>
+
+                    <span class="admin-action__footer">
+                        Zarządzaj zastępstwami
+                        <span>→</span>
+                    </span>
+                </button>
             </div>
 
             <section class="admin-section">
@@ -666,6 +685,42 @@ else
                                     Wróć do listy
                                 </button>
                             </form>
+
+                            @if (editedUser.Id != currentUserId)
+                            {
+                                <hr class="my-4" />
+
+                                <h3 class="mb-3">Hasło tymczasowe</h3>
+
+                                <form @onsubmit="SetUserTemporaryPasswordAsync"
+                                      @onsubmit:preventDefault>
+
+                                    <div class="mb-3">
+                                        <label for="editTemporaryPassword" class="form-label">
+                                            Nowe hasło tymczasowe
+                                        </label>
+                                        <input id="editTemporaryPassword"
+                                               class="form-control"
+                                               type="text"
+                                               @bind="editTemporaryPassword"
+                                               autocomplete="off"
+                                               minlength="8"
+                                               placeholder="Co najmniej 8 znaków" />
+
+                                        <small class="form-text text-muted">
+                                            Przekaż je użytkownikowi. Stare hasło przestanie działać,
+                                            a przy najbliższym logowaniu użytkownik będzie musiał
+                                            ustawić własne hasło.
+                                        </small>
+                                    </div>
+
+                                    <button type="submit"
+                                            class="btn btn-primary"
+                                            disabled="@(isSettingTemporaryPassword || isSavingProfile)">
+                                        @(isSettingTemporaryPassword ? "Zapisywanie..." : "Ustaw hasło tymczasowe")
+                                    </button>
+                                </form>
+                            }
                         </div>
                     }
                     else if (managedUsers.Count == 0)
@@ -1142,6 +1197,8 @@ else
     private UserListItem? editedUser;
     private bool isLoadingUsers;
     private bool isSavingProfile;
+    private bool isSettingTemporaryPassword;
+    private string editTemporaryPassword = string.Empty;
     private string editLogin = string.Empty;
     private string editEmail = string.Empty;
     private string editFirstName = string.Empty;
@@ -1550,11 +1607,13 @@ else
         editEmail = item.Email;
         editFirstName = item.FirstName;
         editLastName = item.LastName;
+        editTemporaryPassword = string.Empty;
     }
 
     private void CancelEditUser()
     {
         editedUser = null;
+        editTemporaryPassword = string.Empty;
         errorMessage = null;
     }
 
@@ -1615,6 +1674,62 @@ else
         finally
         {
             isSavingProfile = false;
+        }
+    }
+
+    private async Task SetUserTemporaryPasswordAsync()
+    {
+        if (editedUser is null || isSettingTemporaryPassword || isSavingProfile ||
+            !hasAdminAccess || !Can(EnumPermission.ManageUsers))
+        {
+            return;
+        }
+
+        errorMessage = null;
+        successMessage = null;
+
+        if (string.IsNullOrWhiteSpace(editTemporaryPassword) ||
+            editTemporaryPassword.Length < 8)
+        {
+            errorMessage = "Hasło tymczasowe musi mieć co najmniej 8 znaków.";
+            return;
+        }
+
+        isSettingTemporaryPassword = true;
+
+        try
+        {
+            await authService.SetTemporaryPasswordAsync(
+                editedUser.Id,
+                editTemporaryPassword);
+
+            editTemporaryPassword = string.Empty;
+
+            successMessage =
+                "Hasło tymczasowe zostało ustawione. Użytkownik zmieni je przy następnym logowaniu.";
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (InvalidOperationException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (ArgumentException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(
+                $"Błąd ustawiania hasła tymczasowego: {ex}");
+
+            errorMessage = "Nie udało się ustawić hasła tymczasowego.";
+        }
+        finally
+        {
+            isSettingTemporaryPassword = false;
         }
     }
 
@@ -1932,6 +2047,11 @@ else
         ownConfirmPassword = string.Empty;
 
         view = 0;
+    }
+
+    private void OpenSubstitutions()
+    {
+        Navigation.NavigateTo("/admin/substitutions");
     }
 
     private Task LogoutAsync()

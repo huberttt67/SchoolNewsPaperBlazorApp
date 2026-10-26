@@ -1,0 +1,65 @@
+﻿@using System.Text.RegularExpressions
+
+<div class="article-body">
+    @foreach (var segment in Segments)
+    {
+        if (segment.IsImage)
+        {
+            <figure class="article-body__figure">
+                <img src="@($"/Images/{Uri.EscapeDataString(segment.Value)}")"
+                     alt="Zdjęcie w treści artykułu"
+                     loading="lazy" />
+            </figure>
+        }
+        else if (!string.IsNullOrWhiteSpace(segment.Value))
+        {
+            <p class="article-body__paragraph">@segment.Value</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? Text { get; set; }
+
+    private static readonly Regex ImageMarker = new(
+        @"\[\[IMG:([A-Za-z0-9._-]+)\]\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    private List<BodySegment> Segments => Parse(Text);
+
+    private static List<BodySegment> Parse(string? value)
+    {
+        var result = new List<BodySegment>();
+
+        if (string.IsNullOrEmpty(value))
+            return result;
+
+        var position = 0;
+
+        foreach (Match match in ImageMarker.Matches(value))
+        {
+            if (match.Index > position)
+                result.Add(new BodySegment(false, value[position..match.Index]));
+
+            var fileName = match.Groups[1].Value;
+
+            if (string.Equals(
+                fileName,
+                Path.GetFileName(fileName),
+                StringComparison.Ordinal))
+            {
+                result.Add(new BodySegment(true, fileName));
+            }
+
+            position = match.Index + match.Length;
+        }
+
+        if (position < value.Length)
+            result.Add(new BodySegment(false, value[position..]));
+
+        return result;
+    }
+
+    private sealed record BodySegment(bool IsImage, string Value);
+}

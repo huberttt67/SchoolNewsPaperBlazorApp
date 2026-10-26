@@ -21,6 +21,10 @@ namespace SchoolNewspaperBlazorApp.Data
         // Soft Delete: false = aktywny, true = usunięty logicznie.
         public bool IsDeleted { get; set; }
 
+        // true = hasło jest tymczasowe (nadane przez administratora)
+        // i trzeba je zmienić zaraz po zalogowaniu.
+        public bool MustChangePassword { get; set; }
+
         public ICollection<UserPermission> UserPermissions { get; set; }
             = new List<UserPermission>();
     }

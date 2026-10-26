@@ -8,8 +8,6 @@
 @inject IJSRuntime JS
 
 <div class="af">
-
-    @* ===================== PASEK BOCZNY ===================== *@
     <aside class="af-rail" aria-label="Sekcje artykułu">
         <div class="af-rail__head">
             <span class="af-rail__eyebrow">
@@ -23,7 +21,6 @@
         <nav class="af-rail__nav">
             <button type="button"
                     class="af-tab @(activeTab == FormTab.Info ? "is-active" : "")"
-                    aria-current="@(activeTab == FormTab.Info ? "page" : null)"
                     @onclick="() => activeTab = FormTab.Info">
                 <span class="af-tab__icon">✎</span>
                 <span class="af-tab__text">
@@ -34,7 +31,6 @@
 
             <button type="button"
                     class="af-tab @(activeTab == FormTab.Gallery ? "is-active" : "")"
-                    aria-current="@(activeTab == FormTab.Gallery ? "page" : null)"
                     @onclick="() => activeTab = FormTab.Gallery">
                 <span class="af-tab__icon">▦</span>
                 <span class="af-tab__text">
@@ -46,11 +42,22 @@
                     <span class="af-tab__badge">@GalleryTotal</span>
                 }
             </button>
+
+            <button type="button"
+                    class="af-tab @(activeTab == FormTab.Preview ? "is-active" : "")"
+                    @onclick="() => activeTab = FormTab.Preview">
+                <span class="af-tab__icon">◉</span>
+                <span class="af-tab__text">
+                    <strong>Podgląd</strong>
+                    <small>Artykuł przed publikacją</small>
+                </span>
+            </button>
         </nav>
 
-        <ul class="af-checklist" aria-label="Postęp wypełniania">
+        <ul class="af-checklist">
             <li class="is-done">
-                <span class="af-checklist__dot"></span>Rodzaj: @articleType.Label()
+                <span class="af-checklist__dot"></span>
+                Rodzaj: @articleType.Label()
             </li>
             <li class="@(string.IsNullOrWhiteSpace(title) ? "" : "is-done")">
                 <span class="af-checklist__dot"></span>Tytuł
@@ -67,10 +74,10 @@
         </ul>
     </aside>
 
-    @* ===================== TREŚĆ ===================== *@
-    <form class="af-main" @onsubmit="SaveArticleAsync" @onsubmit:preventDefault>
+    <form class="af-main"
+          @onsubmit="SaveArticleAsync"
+          @onsubmit:preventDefault>
 
-        @* --- Zakładka: Informacje --- *@
         <section class="af-pane @(activeTab == FormTab.Info ? "is-active" : "")">
             <header class="af-pane__header">
                 <span class="af-pane__eyebrow">PODSTAWOWE DANE</span>
@@ -108,13 +115,28 @@
                     </div>
 
                     <div class="af-field">
-                        <label class="form-label" for="articleText">Treść</label>
+                        <label class="form-label" for="articleText">Treść artykułu</label>
+
+                        <div class="af-inline-tools">
+                            <label class="af-button af-button--secondary af-inline-tools__button">
+                                ＋ Wstaw zdjęcie w treści
+                                <InputFile OnChange="ChooseInlinePhotoAsync"
+                                           accept="image/*"
+                                           disabled="@isSaving" />
+                            </label>
+                            <small>Ustaw kursor w wybranym miejscu. Maksymalny rozmiar zdjęcia: 5 MB.</small>
+                        </div>
+
                         <textarea id="articleText"
                                   @bind="text"
                                   @bind:event="oninput"
                                   class="form-control"
-                                  rows="10"
-                                  placeholder="Treść artykułu..."></textarea>
+                                  rows="12"
+                                  placeholder="Napisz artykuł… Ustaw kursor w wybranym miejscu, aby wstawić zdjęcie."></textarea>
+
+                        <small class="af-note">
+                            Możesz wstawić kilka zdjęć pomiędzy akapitami.
+                        </small>
                     </div>
 
                     <div class="af-field">
@@ -149,7 +171,7 @@
                         Okładka widoczna na kafelku artykułu i na początku tekstu.
                         @if (EditingArticle is not null)
                         {
-                            <span> Zostaw bez zmian, aby zachować obecne zdjęcie.</span>
+                            <span>Zostaw bez zmian, aby zachować obecne zdjęcie.</span>
                         }
                     </p>
 
@@ -161,19 +183,48 @@
             </div>
         </section>
 
-        @* --- Zakładka: Galeria --- *@
+        <section class="af-pane @(activeTab == FormTab.Preview ? "is-active" : "")">
+            <header class="af-pane__header">
+                <span class="af-pane__eyebrow">PODGLĄD PUBLIKACJI</span>
+                <h2>@(string.IsNullOrWhiteSpace(title) ? "Tytuł artykułu" : title)</h2>
+                <p>Tak będzie wyglądać artykuł po otwarciu na stronie.</p>
+            </header>
+
+            <article class="af-preview-article">
+                @if (CoverSrc is not null)
+                {
+                    <div class="af-preview-article__cover">
+                        <img src="@CoverSrc" alt="Zdjęcie główne artykułu" />
+                    </div>
+                }
+
+                <div class="af-preview-article__meta">
+                    <span>@articleType.Label()</span>
+                    <span>@(string.IsNullOrWhiteSpace(author) ? "Autor" : author)</span>
+                </div>
+
+                <h1 class="af-preview-article__title">
+                    @(string.IsNullOrWhiteSpace(title) ? "Tytuł artykułu" : title)
+                </h1>
+
+                <div class="af-preview-article__body">
+                    <ArticleBody Text="@text" />
+                </div>
+            </article>
+        </section>
+
         <section class="af-pane @(activeTab == FormTab.Gallery ? "is-active" : "")">
             <header class="af-pane__header">
                 <span class="af-pane__eyebrow">WIĘCEJ KADRÓW</span>
                 <h2>Galeria zdjęć</h2>
-                <p>Dodatkowe zdjęcia widoczne dopiero po otwarciu artykułu (do @MaxGalleryFiles zdjęć naraz, maks. 5 MB każde).</p>
+                <p>Dodatkowe zdjęcia widoczne dopiero po otwarciu artykułu. Maksymalnie @MaxGalleryFiles zdjęć.</p>
             </header>
 
             <label class="af-dropzone">
                 <span class="af-dropzone__icon">＋</span>
                 <span class="af-dropzone__text">
                     <strong>Wybierz zdjęcia do galerii</strong>
-                    <small>Możesz zaznaczyć kilka plików jednocześnie. Kolejny wybór zastąpi obecną listę.</small>
+                    <small>Możesz zaznaczyć kilka plików jednocześnie.</small>
                 </span>
                 <InputFile OnChange="ChooseGalleryPhotos" accept="image/*" multiple />
             </label>
@@ -183,7 +234,9 @@
                 <div class="af-block">
                     <div class="af-block__head">
                         <h3>Do dodania <span class="af-count">@galleryFiles.Count</span></h3>
-                        <button type="button" class="af-link" @onclick="ClearSelectedGallery">Wyczyść wybór</button>
+                        <button type="button" class="af-link" @onclick="ClearSelectedGallery">
+                            Wyczyść wybór
+                        </button>
                     </div>
 
                     <div class="af-thumbs">
@@ -198,17 +251,21 @@
                                 {
                                     <div class="af-thumb__fallback">▣</div>
                                 }
+
                                 <figcaption title="@galleryFile.Name">@galleryFile.Name</figcaption>
+
                                 <button type="button"
                                         class="af-thumb__remove"
                                         aria-label="Usuń z wyboru"
-                                        @onclick="() => RemoveSelectedGalleryFile(galleryFile)">×</button>
+                                        @onclick="() => RemoveSelectedGalleryFile(galleryFile)">
+                                    ×
+                                </button>
                             </figure>
                         }
                     </div>
 
                     <p class="af-note">
-                        Zdjęcia zostaną zapisane po kliknięciu „@(EditingArticle is null ? "Opublikuj artykuł" : "Zapisz zmiany")”.
+                        Zdjęcia zostaną zapisane po kliknięciu przycisku zapisu.
                     </p>
                 </div>
             }
@@ -233,15 +290,19 @@
                             @foreach (var image in existingGallery)
                             {
                                 var url = GalleryUrl(image);
+
                                 <figure class="af-thumb" @key="image">
-                                    <a href="@url" target="_blank" rel="noopener noreferrer" aria-label="Otwórz zdjęcie">
+                                    <a href="@url" target="_blank" rel="noopener noreferrer">
                                         <img src="@url" alt="Zdjęcie z galerii" loading="lazy" />
                                     </a>
+
                                     <button type="button"
                                             class="af-thumb__remove af-thumb__remove--danger"
                                             aria-label="Usuń zdjęcie z galerii"
                                             disabled="@isSaving"
-                                            @onclick="() => DeleteExistingGalleryImageAsync(image)">🗑</button>
+                                            @onclick="() => DeleteExistingGalleryImageAsync(image)">
+                                        🗑
+                                    </button>
                                 </figure>
                             }
                         </div>
@@ -257,10 +318,9 @@
             }
         </section>
 
-        @* --- Pasek akcji (zawsze widoczny) --- *@
         <footer class="af-actions">
             <span class="af-actions__hint">
-                @if (activeTab == FormTab.Info && galleryFiles.Count > 0)
+                @if (galleryFiles.Count > 0)
                 {
                     <span>Do galerii czeka: @galleryFiles.Count zdjęć.</span>
                 }
@@ -287,7 +347,7 @@
     private const int MaxGalleryFiles = 30;
     private const long MaxFileSize = 5 * 1024 * 1024;
 
-    private enum FormTab { Info, Gallery }
+    private enum FormTab { Info, Gallery, Preview }
 
     [Parameter]
     public Article? EditingArticle { get; set; }
@@ -302,7 +362,6 @@
     private string author = "";
     private ArticleType articleType = ArticleType.Nowosci;
 
-    // Podgląd nowo wybranego zdjęcia głównego (data URL) oraz obecne zdjęcie z bazy.
     private string? previewImage;
     private string? currentCoverUrl;
 
@@ -322,9 +381,7 @@
     private string GalleryUrl(string image) =>
         $"/Images/Gallery/{EditingArticle?.Id}/{Uri.EscapeDataString(image)}";
 
-    // Komunikaty jako powiadomienia (toast) na górze strony.
     private readonly Queue<(string Type, string Message)> pendingToasts = new();
-
     private string? _errorMessage;
 
     private string? errorMessage
@@ -335,9 +392,7 @@
             _errorMessage = value;
 
             if (!string.IsNullOrWhiteSpace(value))
-            {
                 pendingToasts.Enqueue(("error", value));
-            }
         }
     }
 
@@ -362,7 +417,7 @@
             }
             catch (InvalidOperationException)
             {
-                // JS jeszcze niedostępny (prerendering) - pomijamy.
+                // JavaScript może być niedostępny podczas prerenderowania.
             }
         }
     }
@@ -371,12 +426,8 @@
     {
         var articleId = EditingArticle?.Id ?? 0;
 
-        // Formularz resetujemy tylko przy pierwszym wczytaniu albo zmianie artykułu,
-        // żeby odświeżenie rodzica nie kasowało tego, co użytkownik już wpisał.
         if (initialized && articleId == loadedArticleId)
-        {
             return;
-        }
 
         initialized = true;
         loadedArticleId = articleId;
@@ -401,13 +452,11 @@
                 var fileName = await fileService.GetFileNameByIdAsync(EditingArticle.FileId);
 
                 if (!string.IsNullOrWhiteSpace(fileName))
-                {
                     currentCoverUrl = $"/Images/{fileName}";
-                }
             }
             catch
             {
-                // Artykuł może nie mieć jeszcze zdjęcia głównego.
+                // Artykuł może nie mieć zdjęcia głównego.
             }
 
             await ReloadExistingGalleryAsync();
@@ -442,7 +491,6 @@
     private async Task ChoosePhoto(InputFileChangeEventArgs e)
     {
         errorMessage = null;
-
         var chosen = e.File;
 
         if (!chosen.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
@@ -451,7 +499,7 @@
             return;
         }
 
-        if (chosen.Size > MaxFileSize)
+        if (chosen.Size <= 0 || chosen.Size > MaxFileSize)
         {
             errorMessage = "Zdjęcie jest zbyt duże (maksymalnie 5 MB).";
             return;
@@ -462,11 +510,82 @@
             previewImage = await fileService.GetPreviewAsync(chosen);
             file = chosen;
         }
-        catch (Exception)
+        catch
         {
             file = null;
             previewImage = null;
             errorMessage = "Nie udało się wczytać podglądu zdjęcia.";
+        }
+    }
+
+    private async Task ChooseInlinePhotoAsync(InputFileChangeEventArgs e)
+    {
+        errorMessage = null;
+        var chosen = e.File;
+
+        if (!chosen.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        {
+            errorMessage = "Do treści można wstawiać wyłącznie pliki graficzne.";
+            return;
+        }
+
+        if (chosen.Size <= 0 || chosen.Size > MaxFileSize)
+        {
+            errorMessage = "Zdjęcie w treści może mieć maksymalnie 5 MB.";
+            return;
+        }
+
+        try
+        {
+            var imageId = await fileService.UploadImage(chosen);
+            var fileName = await fileService.GetFileNameByIdAsync(imageId);
+
+            if (string.IsNullOrWhiteSpace(fileName) ||
+                !string.Equals(fileName, Path.GetFileName(fileName), StringComparison.Ordinal))
+            {
+                errorMessage = "Nie udało się ustalić nazwy zapisanego zdjęcia.";
+                return;
+            }
+
+            var marker = $"\n\n[[IMG:{fileName}]]\n\n";
+            string? updatedText = null;
+
+            try
+            {
+                updatedText = await JS.InvokeAsync<string?>(
+                    "articleEditor.insertAtCursor", "articleText", marker);
+            }
+            catch (JSException)
+            {
+                // Gdy JavaScript nie działa, znacznik zostanie dodany na końcu.
+            }
+            catch (InvalidOperationException)
+            {
+                // Gdy JavaScript nie jest jeszcze dostępny.
+            }
+
+            if (updatedText is not null)
+            {
+                text = updatedText;
+            }
+            else
+            {
+                var safeMarker = $"[[IMG:{fileName}]]";
+                text = string.IsNullOrWhiteSpace(text)
+                    ? safeMarker
+                    : $"{text.TrimEnd()}\n\n{safeMarker}\n\n";
+            }
+
+            Notify("Zdjęcie wstawiono do treści artykułu.");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            errorMessage = ex.Message;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Błąd wstawiania zdjęcia w treści: {ex}");
+            errorMessage = "Nie udało się wstawić zdjęcia do treści artykułu.";
         }
     }
 
@@ -476,7 +595,6 @@
         galleryFiles.Clear();
         thumbnails.Clear();
 
-        // GetMultipleFiles rzuca wyjątek po przekroczeniu limitu, więc sprawdzamy go wcześniej.
         if (e.FileCount > MaxGalleryFiles)
         {
             errorMessage = $"Do galerii można wybrać maksymalnie {MaxGalleryFiles} zdjęć naraz.";
@@ -491,7 +609,7 @@
             return;
         }
 
-        if (chosen.Any(f => f.Size > MaxFileSize))
+        if (chosen.Any(f => f.Size <= 0 || f.Size > MaxFileSize))
         {
             errorMessage = "Każde zdjęcie w galerii może mieć maksymalnie 5 MB.";
             return;
@@ -499,8 +617,6 @@
 
         galleryFiles.AddRange(chosen);
 
-        // Lekkie miniatury (zmniejszone w przeglądarce), żeby nie wysyłać
-        // pełnych zdjęć z powrotem do przeglądarki jako podgląd.
         foreach (var galleryFile in galleryFiles)
         {
             try
@@ -509,6 +625,7 @@
 
                 using var stream = resized.OpenReadStream(1024 * 1024);
                 using var memory = new MemoryStream();
+
                 await stream.CopyToAsync(memory);
 
                 thumbnails[galleryFile] =
@@ -516,7 +633,7 @@
             }
             catch
             {
-                // Bez miniatury – zdjęcie i tak zostanie poprawnie dodane.
+                // Brak miniatury nie blokuje dodania zdjęcia.
             }
         }
     }
@@ -536,9 +653,7 @@
     private async Task DeleteExistingGalleryImageAsync(string image)
     {
         if (EditingArticle is null || isSaving)
-        {
             return;
-        }
 
         bool confirmed;
 
@@ -548,16 +663,14 @@
                 "confirm",
                 "Czy na pewno chcesz usunąć to zdjęcie z galerii?");
         }
-        catch (Exception)
+        catch
         {
             errorMessage = "Nie udało się wyświetlić potwierdzenia usunięcia.";
             return;
         }
 
         if (!confirmed)
-        {
             return;
-        }
 
         try
         {
@@ -569,7 +682,7 @@
         {
             errorMessage = ex.Message;
         }
-        catch (Exception)
+        catch
         {
             errorMessage = "Nie udało się usunąć zdjęcia z galerii.";
         }
@@ -591,7 +704,6 @@
             return;
         }
 
-        // Zdjęcie jest obowiązkowe przy dodawaniu nowego artykułu.
         if (EditingArticle is null && file is null)
         {
             activeTab = FormTab.Info;
@@ -603,13 +715,10 @@
 
         try
         {
-            // 0 oznacza „bez nowego zdjęcia głównego” – przy edycji zostaje obecne.
             int imageId = 0;
 
             if (file is not null)
-            {
                 imageId = await fileService.UploadImage(file);
-            }
 
             if (EditingArticle is null)
             {
@@ -643,8 +752,9 @@
         {
             errorMessage = ex.Message;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            Console.Error.WriteLine($"Błąd zapisu artykułu: {ex}");
             errorMessage = "Nie udało się zapisać artykułu. Sprawdź usługę artykułów i połączenie z bazą danych.";
         }
         finally

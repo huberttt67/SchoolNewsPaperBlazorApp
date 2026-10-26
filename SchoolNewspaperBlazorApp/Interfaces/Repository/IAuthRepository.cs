@@ -29,6 +29,10 @@ namespace SchoolNewspaperBlazorApp.Interfaces.Repository
             string firstName,
             string lastName);
 
-        Task SetPasswordHashAsync(int userId, string passwordHash);
+        // mustChangePassword = true oznacza hasło tymczasowe do zmiany po zalogowaniu.
+        Task SetPasswordHashAsync(
+            int userId,
+            string passwordHash,
+            bool mustChangePassword);
     }
 }

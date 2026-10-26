@@ -311,7 +311,10 @@ namespace SchoolNewspaperBlazorApp.Repository
             }
         }
 
-        public async Task SetPasswordHashAsync(int userId, string passwordHash)
+        public async Task SetPasswordHashAsync(
+            int userId,
+            string passwordHash,
+            bool mustChangePassword)
         {
             var found = false;
 
@@ -327,11 +330,13 @@ namespace SchoolNewspaperBlazorApp.Repository
                 {
                     found = true;
                     user.Haslo = passwordHash;
+                    user.MustChangePassword = mustChangePassword;
                     await context.SaveChangesAsync();
 
                     _logger.LogInformation(
-                        "Zmieniono hasło użytkownika {UserId}.",
-                        userId);
+                        "Zmieniono hasło użytkownika {UserId} (zmiana przy logowaniu: {MustChange}).",
+                        userId,
+                        mustChangePassword);
                 }
             }
             catch (Exception ex)
