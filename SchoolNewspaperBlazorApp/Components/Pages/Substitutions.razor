@@ -14,13 +14,27 @@
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<Substitutions> Logger
 @inject IJSRuntime JS
+@inject NavigationManager Navigation
 
 <PageTitle>Zastępstwa | Gazetka ETI</PageTitle>
 
 <div class="sub-page">
+    <div class="admin-back-row">
+        <button type="button"
+                class="admin-back-button"
+                @onclick='() => Navigation.NavigateTo("/adminPanel")'>
+            <span>←</span>
+            Wróć do panelu
+        </button>
+
+        <div class="admin-current-view">
+            <span class="site-status__dot"></span>
+            <span>Zastępstwa</span>
+        </div>
+    </div>
+
     <header class="sub-hero">
         <div class="sub-hero__copy">
-            <a class="sub-back" href="/">← Strona główna</a>
             <span class="sub-eyebrow">GAZETKA ETI · ORGANIZACJA ZAJĘĆ</span>
             <h1>Zastępstwa</h1>
             <p>Sprawdź klasę, numer lekcji, godziny i nauczycieli.</p>
@@ -89,7 +103,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                : $" · {teacher.Subject}")
+                                                                                                                    : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -116,7 +130,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                : $" · {teacher.Subject}")
+                                                                                                                    : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -575,6 +589,7 @@
         successMessage = null;
     }
 
+   
     private async Task SaveSubstituteAsync()
     {
         errorMessage = null;
@@ -633,6 +648,43 @@
         {
             await using var db = await DbFactory.CreateDbContextAsync();
 
+            // Sprawdzamy duplikat przed dodaniem lub aktualizacją.
+            // Duplikat oznacza zastępstwo dla tej samej klasy,
+            // tego samego dnia i tej samej lekcji.
+            var duplicateExists = await db.Substitutes.AnyAsync(s =>
+                !s.IsDeleted &&
+                s.SubstituteDate == form.SubstituteDate.Date &&
+                s.ClassName == form.ClassName &&
+                s.LessonNumber == form.LessonNumber &&
+                (!editingSubstituteId.HasValue ||
+                 s.Id != editingSubstituteId.Value));
+
+            if (duplicateExists)
+            {
+                errorMessage =
+                    "Zastępstwo dla tej klasy, daty i numeru lekcji już istnieje.";
+                return;
+            }
+
+            // Nauczyciel nie może mieć w tym samym czasie zastępstwa z inną klasą.
+            // Konflikt = ten sam dzień, ten sam nauczyciel zastępujący,
+            // godziny nakładają się na siebie (albo ten sam numer lekcji).
+            var teacherBusy = await db.Substitutes.AnyAsync(s =>
+                !s.IsDeleted &&
+                s.SubstituteDate == form.SubstituteDate.Date &&
+                s.TeacherId == form.TeacherId &&
+                (!editingSubstituteId.HasValue ||
+                 s.Id != editingSubstituteId.Value) &&
+                (s.LessonNumber == form.LessonNumber ||
+                 (s.StartTime < end && s.EndTime > start)));
+
+            if (teacherBusy)
+            {
+                errorMessage =
+                    "Ten nauczyciel ma już zastępstwo w tym czasie z inną klasą.";
+                return;
+            }
+
             Substitute? item;
 
             if (editingSubstituteId.HasValue)
@@ -684,13 +736,15 @@
         catch (Exception ex)
         {
             Logger.LogError(ex, "Nie udało się zapisać zastępstwa.");
-            errorMessage = "Nie udało się zapisać zastępstwa. Sprawdź model i konfigurację bazy danych.";
+            errorMessage =
+                "Nie udało się zapisać zastępstwa. Sprawdź model i konfigurację bazy danych.";
         }
         finally
         {
             isSaving = false;
         }
     }
+
 
     private void EditTeacher(Teacher teacher)
     {
