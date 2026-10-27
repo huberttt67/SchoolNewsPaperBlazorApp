@@ -69,7 +69,10 @@
                     @if (!string.IsNullOrEmpty(imageUrl))
                     {
                         <div class="ap-cover">
-                            <img src="@imageUrl" alt="@article.Title" />
+                            <img src="@imageUrl"
+                                 alt="@article.Title"
+                                 loading="eager"
+                                 decoding="async" />
                         </div>
                     }
 
@@ -108,22 +111,25 @@
                     @if (galleryImages.Count > 0)
                     {
                         <div class="ap-gallery__grid">
-                            @foreach (var image in galleryImages)
+                            @for (var i = 0; i < galleryImages.Count; i++)
                             {
+                                var index = i;
                                 var photoUrl =
-                                    $"/Images/Gallery/{Id}/{Uri.EscapeDataString(image)}";
+                                    $"/Images/Gallery/{Id}/{Uri.EscapeDataString(galleryImages[index])}";
 
-                                <a class="ap-photo"
-                                   href="@photoUrl"
-                                   target="_blank"
-                                   rel="noopener noreferrer">
-
-                                    <img src="@photoUrl"
-                                         alt="Zdjęcie z galerii artykułu: @article.Title"
-                                         loading="lazy" />
-
-                                    <span class="ap-photo__zoom">↗</span>
-                                </a>
+                                <div class="ap-gallery__item">
+                                    <ImageLightbox Src="@photoUrl"
+                                                   Alt="@($"Zdjęcie z galerii artykułu: {article.Title}")"
+                                                   Id="@($"ap-gal-{index}")"
+                                                   CloseId="ap-gal-close"
+                                                   Group="ap-gal-group"
+                                                   IsFirst="@(index == 0)"
+                                                   PrevId="@(galleryImages.Count > 1 ? $"ap-gal-{(index - 1 + galleryImages.Count) % galleryImages.Count}" : null)"
+                                                   NextId="@(galleryImages.Count > 1 ? $"ap-gal-{(index + 1) % galleryImages.Count}" : null)"
+                                                   ThumbClass="ap-photo">
+                                        <span class="ap-photo__zoom">↗</span>
+                                    </ImageLightbox>
+                                </div>
                             }
                         </div>
                     }

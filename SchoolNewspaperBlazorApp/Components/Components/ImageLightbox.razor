@@ -1,0 +1,50 @@
+﻿@* Miniatura zdjęcia, którą po kliknięciu można otworzyć w powiększeniu.
+   Działa wyłącznie na CSS (przyciski radio), więc nie wymaga JavaScriptu
+   i działa też na stronach bez trybu interaktywnego. Zdjęcia z jednej
+   grupy (Group) można przeglądać strzałkami. *@
+
+@if (IsFirst)
+{
+    <input type="radio" name="@Group" id="@CloseId" class="lbx-closed" checked tabindex="-1" aria-hidden="true" />
+}
+
+<input type="radio" name="@Group" id="@Id" class="lbx-toggle" aria-label="Powiększ zdjęcie" />
+
+<label for="@Id" class="@($"lbx-thumb {ThumbClass}".Trim())" title="Kliknij, aby powiększyć">
+    <img src="@Src" alt="@Alt" loading="lazy" decoding="async" />
+    @ChildContent
+</label>
+
+<div class="lbx-overlay" role="dialog" aria-label="Powiększone zdjęcie">
+    <label for="@CloseId" class="lbx-backdrop" aria-label="Zamknij"></label>
+
+    <img class="lbx-image" src="@Src" alt="@Alt" loading="lazy" />
+
+    <label for="@CloseId" class="lbx-close" title="Zamknij">×</label>
+
+    @if (!string.IsNullOrEmpty(PrevId) && !string.IsNullOrEmpty(NextId))
+    {
+        <label for="@PrevId" class="lbx-nav lbx-nav--prev" title="Poprzednie zdjęcie">‹</label>
+        <label for="@NextId" class="lbx-nav lbx-nav--next" title="Następne zdjęcie">›</label>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Src { get; set; } = string.Empty;
+    [Parameter] public string Alt { get; set; } = string.Empty;
+
+    // Unikalne id tego zdjęcia oraz id „zamykacza” całej grupy.
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string CloseId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Group { get; set; } = string.Empty;
+
+    // Tylko pierwsze zdjęcie w grupie renderuje „zamykacz”.
+    [Parameter] public bool IsFirst { get; set; }
+
+    // Id sąsiednich zdjęć (strzałki). Puste = brak strzałek.
+    [Parameter] public string? PrevId { get; set; }
+    [Parameter] public string? NextId { get; set; }
+
+    [Parameter] public string? ThumbClass { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

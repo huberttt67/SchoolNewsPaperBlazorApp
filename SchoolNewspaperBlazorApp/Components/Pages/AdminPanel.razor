@@ -2138,7 +2138,7 @@ else
         }
 
         var clean = System.Text.RegularExpressions.Regex
-            .Replace(articleText, @"\[\[IMG:[A-Za-z0-9._-]+\]\]", " ")
+            .Replace(articleText, @"\[\[IMG:[A-Za-z0-9._-]+(?:\|(?:left|right|center))?\]\]", " ")
             .Trim();
 
         clean = System.Text.RegularExpressions.Regex

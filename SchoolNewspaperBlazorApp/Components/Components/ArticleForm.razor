@@ -127,6 +127,21 @@
                             <small>Ustaw kursor w wybranym miejscu. Maksymalny rozmiar zdjęcia: 5 MB.</small>
                         </div>
 
+                        <div class="af-inline-align" role="group" aria-label="Ułożenie zdjęcia w tekście">
+                            <span>Ułożenie wstawianego zdjęcia:</span>
+
+                            @foreach (var option in alignOptions)
+                            {
+                                var value = option.Value;
+
+                                <button type="button"
+                                        class="@($"af-align-btn {(inlineAlign == value ? "is-active" : "")}".Trim())"
+                                        @onclick="() => inlineAlign = value">
+                                    @option.Label
+                                </button>
+                            }
+                        </div>
+
                         <textarea id="articleText"
                                   @bind="text"
                                   @bind:event="oninput"
@@ -135,7 +150,9 @@
                                   placeholder="Napisz artykuł… Ustaw kursor w wybranym miejscu, aby wstawić zdjęcie."></textarea>
 
                         <small class="af-note">
-                            Możesz wstawić kilka zdjęć pomiędzy akapitami.
+                            Zdjęcie „do lewej” lub „do prawej” jest opływane tekstem. Znacznik
+                            zdjęcia (np. [[IMG:plik.jpg|left]]) możesz przenieść w inne miejsce
+                            tekstu albo zmienić jego ułożenie na left, right lub center.
                         </small>
                     </div>
 
@@ -359,6 +376,16 @@
 
     private string title = "";
     private string text = "";
+
+    // Ułożenie zdjęcia wstawianego w treść: left / center / right.
+    private string inlineAlign = "left";
+
+    private static readonly (string Value, string Label)[] alignOptions =
+    {
+        ("left", "◧ Do lewej"),
+        ("center", "▣ Na środku"),
+        ("right", "Do prawej ◨")
+    };
     private string author = "";
     private ArticleType articleType = ArticleType.Nowosci;
 
@@ -547,7 +574,7 @@
                 return;
             }
 
-            var marker = $"\n\n[[IMG:{fileName}]]\n\n";
+            var marker = $"\n\n[[IMG:{fileName}|{inlineAlign}]]\n\n";
             string? updatedText = null;
 
             try
@@ -570,7 +597,7 @@
             }
             else
             {
-                var safeMarker = $"[[IMG:{fileName}]]";
+                var safeMarker = $"[[IMG:{fileName}|{inlineAlign}]]";
                 text = string.IsNullOrWhiteSpace(text)
                     ? safeMarker
                     : $"{text.TrimEnd()}\n\n{safeMarker}\n\n";

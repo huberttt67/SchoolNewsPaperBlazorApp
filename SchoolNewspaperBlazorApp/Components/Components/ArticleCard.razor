@@ -111,7 +111,7 @@
 
         var clean = System.Text.RegularExpressions.Regex.Replace(
             value,
-            @"\[\[IMG:[A-Za-z0-9._-]+\]\]",
+            @"\[\[IMG:[A-Za-z0-9._-]+(?:\|(?:left|right|center))?\]\]",
             " ");
 
         return System.Text.RegularExpressions.Regex.Replace(

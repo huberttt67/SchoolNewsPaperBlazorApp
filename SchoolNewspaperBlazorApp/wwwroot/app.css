@@ -7561,3 +7561,1276 @@ textarea.form-control {
             max-height: 420px;
         }
 }
+
+/* POPRAWKA POWIĘKSZANIA ZDJĘĆ */
+.image-viewer {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 100vw;
+    height: 100vh;
+    padding: 2vh 2vw;
+    box-sizing: border-box;
+    background: transparent !important;
+    cursor: zoom-out;
+}
+
+.image-viewer__image {
+    display: block !important;
+    /* Duże pole wyświetlania — zdjęcie zachowuje proporcje */
+    width: min(94vw, 1400px) !important;
+    height: min(94vh, 1000px) !important;
+    max-width: 94vw !important;
+    max-height: 94vh !important;
+    object-fit: contain !important;
+    object-position: center;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 3px;
+    background: transparent !important;
+    box-shadow: 0 8px 34px rgb(24 38 58 / 24%);
+    cursor: zoom-out;
+}
+/* =========================================================
+   POWIĘKSZANIE ZDJĘĆ — GAZETKA ETI
+   Tło artykułu pozostaje widoczne, bez przyciemniania.
+   ========================================================= */
+
+.ap-cover img,
+.article-body__figure img {
+    cursor: zoom-in;
+}
+
+    .ap-cover img:focus-visible,
+    .article-body__figure img:focus-visible {
+        outline: 3px solid var(--eti-blue, #183a68);
+        outline-offset: 4px;
+    }
+
+.ap-cover {
+    display: grid;
+    place-items: center;
+    margin: 0 auto 30px;
+    overflow: hidden;
+    border: 1px solid #dce3ed;
+    border-bottom: 4px solid var(--eti-blue, #183a68);
+    border-radius: 20px;
+    background: #f2f5f9;
+    box-shadow: 0 12px 30px rgb(24 58 104 / 9%);
+}
+
+    .ap-cover img {
+        display: block;
+        width: 100%;
+        max-height: min(62vh, 620px);
+        height: auto;
+        object-fit: contain;
+        object-position: center;
+        transition: opacity .2s ease;
+    }
+
+        .ap-cover img:hover {
+            opacity: .96;
+        }
+
+.ap-content .article-body {
+    display: flow-root;
+    white-space: normal;
+}
+
+.ap-content .article-body__paragraph {
+    margin: 0 0 1.25em;
+    overflow-wrap: anywhere;
+    white-space: pre-line;
+}
+
+.article-body__figure {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    max-width: 100%;
+    margin: clamp(24px, 3.5vw, 42px) auto;
+    padding: 0;
+}
+
+    .article-body__figure img {
+        display: block;
+        width: auto;
+        max-width: min(100%, 820px);
+        max-height: 620px;
+        height: auto;
+        object-fit: contain;
+        border: 1px solid #dce3ed;
+        border-radius: 16px;
+        background: #f4f6f9;
+        box-shadow: 0 10px 28px rgb(24 58 104 / 10%);
+        transition: transform .22s ease, box-shadow .22s ease;
+    }
+
+        .article-body__figure img:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 34px rgb(24 58 104 / 15%);
+        }
+
+.ap-gallery__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: clamp(10px, 1.6vw, 18px);
+}
+
+.ap-photo {
+    appearance: none;
+    width: 100%;
+    padding: 0;
+    border: 1px solid #dce3ed;
+    text-align: left;
+    cursor: zoom-in;
+}
+
+    .ap-photo img {
+        object-fit: cover;
+    }
+
+.ap-photo__zoom {
+    opacity: 0;
+}
+
+.ap-photo:hover .ap-photo__zoom,
+.ap-photo:focus-visible .ap-photo__zoom {
+    opacity: 1;
+    transform: none;
+}
+
+/* Powiększenie zdjęcia — bez ciemnej nakładki na artykuł. */
+.image-viewer {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 2147483647 !important;
+    display: grid !important;
+    place-items: center !important;
+    width: 100vw;
+    height: 100vh;
+    padding: 2vh 2vw;
+    box-sizing: border-box;
+    background: transparent !important;
+    cursor: zoom-out;
+    animation: image-viewer-in .16s ease-out;
+}
+
+.image-viewer__image {
+    display: block !important;
+    width: min(94vw, 1400px) !important;
+    height: min(94vh, 1000px) !important;
+    max-width: 94vw !important;
+    max-height: 94vh !important;
+    object-fit: contain !important;
+    object-position: center;
+    margin: 0;
+    padding: 0;
+    border: 0 !important;
+    border-radius: 3px;
+    background: transparent !important;
+    box-shadow: 0 8px 34px rgb(24 38 58 / 24%);
+    cursor: zoom-out;
+    animation: image-viewer-image-in .18s ease-out;
+}
+
+@keyframes image-viewer-in {
+    from {
+        opacity: .65;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes image-viewer-image-in {
+    from {
+        transform: scale(.97);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 760px) {
+    .image-viewer {
+        padding: 1vh 1vw;
+    }
+
+    .image-viewer__image {
+        width: 98vw !important;
+        height: 98vh !important;
+        max-width: 98vw !important;
+        max-height: 98vh !important;
+    }
+
+    .ap-gallery__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ==========================================
+   ETI — POWIĘKSZANIE ZDJĘĆ
+   Dopisz na końcu istniejącego app.css
+   ========================================== */
+
+.ap-cover img,
+.ap-gallery__grid img,
+.article-body__figure img {
+    cursor: zoom-in;
+}
+
+/* Zdjęcia w treści artykułu */
+.article-body__figure {
+    margin: 28px auto;
+    max-width: 100%;
+    text-align: center;
+}
+
+    .article-body__figure img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+        border-radius: 12px;
+        transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+        .article-body__figure img:hover {
+            transform: scale(1.01);
+        }
+
+/* Nakładka powiększonego zdjęcia */
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    background: rgba(10, 20, 36, 0.92);
+    cursor: zoom-out;
+    animation: eti-viewer-in 0.2s ease-out;
+}
+
+/* Powiększone zdjęcie */
+.image-viewer__image {
+    display: block;
+    max-width: 94vw;
+    max-height: 90vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 10px;
+    box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+    cursor: zoom-out;
+    animation: eti-image-in 0.22s ease-out;
+}
+
+@keyframes eti-viewer-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes eti-image-in {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@media (max-width: 600px) {
+    .image-viewer {
+        padding: 12px;
+    }
+
+    .image-viewer__image {
+        max-width: 96vw;
+        max-height: 86vh;
+        border-radius: 7px;
+    }
+}
+
+/* ==========================================
+   GAZETKA ETI — FACEBOOK STYLE IMAGE VIEWER
+   ========================================== */
+
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 32px;
+    background: rgba(12, 24, 42, 0.72);
+    backdrop-filter: blur(18px) saturate(120%);
+    -webkit-backdrop-filter: blur(18px) saturate(120%);
+    cursor: zoom-out;
+    isolation: isolate;
+    animation: eti-viewer-appear 0.25s ease-out;
+}
+
+    /* Rozmyte tło — wykorzystuje aktualne zdjęcie */
+    .image-viewer::before {
+        content: "";
+        position: absolute;
+        inset: -35px;
+        z-index: -2;
+        background-image: var(--eti-viewer-image);
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        filter: blur(32px) brightness(0.38) saturate(0.85);
+        transform: scale(1.08);
+    }
+
+    /* Delikatna granatowa poświata */
+    .image-viewer::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient( ellipse at center, rgba(24, 58, 104, 0.08), rgba(8, 17, 31, 0.45) );
+        pointer-events: none;
+    }
+
+/* Główne zdjęcie */
+.image-viewer__image {
+    display: block;
+    position: relative;
+    max-width: min(92vw, 1500px);
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 5px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.38), 0 0 0 1px rgba(255, 255, 255, 0.13);
+    cursor: zoom-out;
+    animation: eti-photo-appear 0.28s cubic-bezier(.2, .75, .25, 1);
+}
+
+/* Kursor na zdjęciach przed powiększeniem */
+.ap-cover img,
+.ap-gallery__grid img,
+.article-body__figure img {
+    cursor: zoom-in;
+}
+
+/* Animacje */
+@keyframes eti-viewer-appear {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes eti-photo-appear {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Telefony */
+@media (max-width: 700px) {
+    .image-viewer {
+        padding: 12px;
+    }
+
+    .image-viewer__image {
+        max-width: 96vw;
+        max-height: 84vh;
+        border-radius: 4px;
+    }
+}
+
+/* Ograniczenie animacji zgodnie z ustawieniami użytkownika */
+@media (prefers-reduced-motion: reduce) {
+    .image-viewer,
+    .image-viewer__image {
+        animation: none;
+    }
+}
+
+/* ==========================================
+   GAZETKA ETI — ELEGANCKI PODGLĄD ZDJĘĆ
+   ========================================== */
+
+.image-viewer {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px;
+    overflow: hidden;
+    background: rgba(9, 19, 34, 0.78);
+    backdrop-filter: blur(20px) saturate(125%);
+    -webkit-backdrop-filter: blur(20px) saturate(125%);
+    isolation: isolate;
+    cursor: zoom-out;
+    animation: eti-viewer-in 0.3s ease both;
+}
+
+    .image-viewer::before {
+        content: "";
+        position: absolute;
+        inset: -45px;
+        z-index: -2;
+        background-image: var(--eti-viewer-image);
+        background-position: center;
+        background-size: cover;
+        background-repeat: no-repeat;
+        filter: blur(38px) brightness(0.3) saturate(0.85);
+        transform: scale(1.08);
+    }
+
+    .image-viewer::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: -1;
+        background: radial-gradient( ellipse at center, rgba(36, 73, 124, 0.12) 0%, rgba(8, 17, 31, 0.45) 100% );
+        pointer-events: none;
+    }
+
+.image-viewer__image {
+    display: block;
+    position: relative;
+    max-width: min(92vw, 1600px);
+    max-height: 88vh;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border-radius: 12px;
+    box-shadow: 0 35px 100px rgba(0, 0, 0, 0.48), 0 12px 35px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.15);
+    cursor: zoom-out;
+    animation: eti-photo-in 0.38s cubic-bezier(.2, .75, .25, 1) both;
+}
+
+
+.ap-cover img {
+    cursor: default;
+}
+
+
+.ap-gallery__grid img,
+.article-body__figure img {
+    cursor: zoom-in;
+}
+
+@keyframes eti-viewer-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes eti-photo-in {
+    from {
+        opacity: 0;
+        transform: scale(0.94) translateY(8px);
+        filter: blur(4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        filter: blur(0);
+    }
+}
+
+@media (max-width: 700px) {
+    .image-viewer {
+        padding: 12px;
+    }
+
+    .image-viewer__image {
+        max-width: 96vw;
+        max-height: 84vh;
+        border-radius: 8px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .image-viewer,
+    .image-viewer__image {
+        animation: none;
+    }
+}
+/* Kontener zawiera zdjęcia opływane tekstem (float). */
+.article-body {
+    display: flow-root;
+    white-space: normal;
+}
+
+.ab-para {
+    margin: 0 0 1.25em;
+    white-space: pre-line;
+}
+
+.ab-fig {
+    margin: 0;
+    white-space: normal;
+}
+
+/* ---------- ułożenie ---------- */
+
+.ab-fig--left {
+    float: left;
+    max-width: min(46%, 380px);
+    margin: 6px 30px 16px 0;
+}
+
+.ab-fig--right {
+    float: right;
+    max-width: min(46%, 380px);
+    margin: 6px 0 16px 30px;
+}
+
+.ab-fig--center {
+    clear: both;
+    margin: 32px 0;
+}
+
+    .ab-fig--center .ab-thumb {
+        width: fit-content;
+        max-width: 100%;
+        margin: 0 auto;
+    }
+
+        .ab-fig--center .ab-thumb img {
+            max-height: 620px;
+        }
+
+/* ---------- miniatura ---------- */
+
+.ab-fig .ab-thumb {
+    overflow: hidden;
+    border: 1px solid var(--eti-border);
+    border-radius: 14px;
+    background: var(--eti-tint);
+    box-shadow: var(--eti-shadow);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+    .ab-fig .ab-thumb:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--eti-shadow-hover);
+    }
+
+    .ab-fig .ab-thumb img {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        margin: 0 auto;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+.ab-zoom {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: rgba(18, 52, 101, .82);
+    color: #fff;
+    font-size: 16px;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity .2s ease;
+    pointer-events: none;
+}
+
+.ab-fig .ab-thumb:hover .ab-zoom {
+    opacity: 1;
+}
+
+@media (max-width: 640px) {
+    .ab-fig--left,
+    .ab-fig--right {
+        float: none;
+        max-width: 100%;
+        margin: 22px 0;
+    }
+
+        .ab-fig--left .ab-thumb,
+        .ab-fig--right .ab-thumb {
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+    .ab-fig--center {
+        margin: 22px 0;
+    }
+
+        .ab-fig--center .ab-thumb img {
+            max-height: 420px;
+        }
+
+    .ab-zoom {
+        opacity: 1;
+    }
+}
+
+.lbx-toggle,
+.lbx-closed {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.lbx-thumb {
+    position: relative;
+    display: block;
+    cursor: zoom-in;
+}
+
+.lbx-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+    padding: 64px 76px;
+    white-space: normal;
+}
+
+.lbx-toggle:checked ~ .lbx-overlay {
+    display: flex;
+    animation: lbx-in .2s ease;
+}
+
+.lbx-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 20, 40, .9);
+    cursor: zoom-out;
+}
+
+.lbx-image {
+    position: relative;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: calc(100vw - 152px);
+    max-height: calc(100vh - 128px);
+    object-fit: contain;
+    border: 0;
+    border-radius: 12px;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .55);
+    pointer-events: none;
+}
+
+.lbx-close,
+.lbx-nav {
+    position: absolute;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: rgba(255, 255, 255, .14);
+    border: 1px solid rgba(255, 255, 255, .22);
+    cursor: pointer;
+    user-select: none;
+    transition: background .15s ease;
+}
+
+    .lbx-close:hover,
+    .lbx-nav:hover {
+        background: rgba(255, 255, 255, .28);
+    }
+
+.lbx-close {
+    top: 18px;
+    right: 22px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    font-size: 30px;
+    line-height: 1;
+}
+
+.lbx-nav {
+    top: 50%;
+    width: 50px;
+    height: 64px;
+    margin-top: -32px;
+    border-radius: 14px;
+    font-size: 38px;
+    line-height: 1;
+}
+
+.lbx-nav--prev {
+    left: 18px;
+}
+
+.lbx-nav--next {
+    right: 18px;
+}
+
+@keyframes lbx-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 640px) {
+    .lbx-overlay {
+        padding: 64px 12px 24px;
+    }
+
+    .lbx-image {
+        max-width: calc(100vw - 24px);
+        max-height: calc(100vh - 110px);
+    }
+
+    .lbx-nav {
+        top: auto;
+        bottom: 16px;
+        margin-top: 0;
+        width: 56px;
+        height: 48px;
+    }
+
+    .lbx-nav--prev {
+        left: calc(50% - 64px);
+    }
+
+    .lbx-nav--next {
+        right: calc(50% - 64px);
+    }
+}
+
+.af-inline-align {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+}
+
+    .af-inline-align > span {
+        color: var(--eti-muted);
+        font-size: 13px;
+        font-weight: 700;
+    }
+
+.af-align-btn {
+    padding: 7px 14px;
+    border: 1px solid var(--eti-border);
+    border-radius: 10px;
+    background: #fff;
+    color: var(--eti-text);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+    .af-align-btn:hover {
+        border-color: var(--eti-blue);
+    }
+
+    .af-align-btn.is-active {
+        background: var(--eti-blue);
+        border-color: var(--eti-blue);
+        color: #fff;
+    }
+/* Zdjęcie główne: pokazujemy całe zdjęcie, bez ucinania. */
+.ap-cover .ap-cover__thumb {
+    display: block;
+    background: var(--eti-tint);
+}
+
+    .ap-cover .ap-cover__thumb img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 520px;
+        object-fit: contain;
+    }
+
+.ap-gallery__item {
+    min-width: 0;
+}
+/* Zdjęcie na karcie: stałe proporcje 16:10, wypełnia całe okno. */
+.article-card__img-wrap {
+    height: auto;
+    aspect-ratio: 16 / 10;
+}
+
+.article-card__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 35%;
+}
+
+.type-badge {
+    z-index: 2;
+}
+
+
+/* =========================================================
+   ETI — POPRAWKI ZDJĘĆ (wszystkie style w jednym app.css)
+   ========================================================= */
+
+/* Zdjęcie główne artykułu jest wyłącznie podglądem:
+   nie da się go kliknąć ani otworzyć w lightboxie. */
+.ap-cover .lbx-thumb {
+    pointer-events: none;
+    cursor: default;
+    transform: none;
+}
+
+    .ap-cover .lbx-thumb:hover {
+        transform: none;
+        box-shadow: none;
+    }
+
+    .ap-cover .lbx-thumb img {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 520px;
+        object-fit: contain;
+        object-position: center;
+    }
+
+/* Galeria: większe miniatury i wyraźna siatka. */
+.ap-gallery__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 22px;
+    align-items: start;
+}
+
+.ap-gallery__item {
+    min-width: 0;
+}
+
+    .ap-gallery__item .lbx-thumb {
+        width: 100%;
+        overflow: hidden;
+        border-radius: 15px;
+        cursor: zoom-in;
+    }
+
+        .ap-gallery__item .lbx-thumb img {
+            display: block;
+            width: 100%;
+            height: 300px;
+            max-width: 100%;
+            object-fit: cover;
+            object-position: center;
+            transition: transform .25s ease;
+        }
+
+        .ap-gallery__item .lbx-thumb:hover img {
+            transform: scale(1.035);
+        }
+
+    .ap-gallery__item .ap-photo__zoom {
+        position: absolute;
+        right: 12px;
+        bottom: 12px;
+        display: grid;
+        place-items: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
+        background: rgba(24, 58, 104, .92);
+        color: #fff;
+        font-size: 18px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .2s ease;
+    }
+
+    .ap-gallery__item .lbx-thumb:hover .ap-photo__zoom {
+        opacity: 1;
+    }
+
+/* Zdjęcia w treści: opływanie tekstem, bez wychodzenia poza kolumnę. */
+.article-body {
+    display: flow-root;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ab-fig {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.ab-fig--left {
+    float: left;
+    width: fit-content;
+    max-width: min(42%, 390px);
+    margin: 6px 26px 18px 0;
+}
+
+.ab-fig--right {
+    float: right;
+    width: fit-content;
+    max-width: min(42%, 390px);
+    margin: 6px 0 18px 26px;
+}
+
+.ab-fig--center {
+    clear: both;
+    width: 100%;
+    margin: 30px 0;
+}
+
+.ab-fig .ab-thumb {
+    position: relative;
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    border: 1px solid var(--eti-border);
+    border-radius: 14px;
+    background: var(--eti-tint);
+    box-shadow: var(--eti-shadow);
+}
+
+    .ab-fig .ab-thumb img {
+        display: block;
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: 420px;
+        margin: 0 auto;
+        object-fit: contain;
+    }
+
+.ab-fig--center .ab-thumb {
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+    .ab-fig--center .ab-thumb img {
+        max-height: 560px;
+    }
+
+.ab-zoom {
+    position: absolute;
+    right: 10px;
+    bottom: 10px;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(24, 58, 104, .92);
+    color: #fff;
+    font-size: 18px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .2s ease;
+}
+
+.ab-fig .ab-thumb:hover .ab-zoom {
+    opacity: 1;
+}
+
+/* Powiększenie zdjęć z tekstu i galerii. */
+.lbx-overlay {
+    padding: 56px;
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+}
+
+.lbx-backdrop {
+    background: rgba(8, 20, 40, .93);
+}
+
+.lbx-image {
+    max-width: 94vw;
+    max-height: 90vh;
+}
+
+.lbx-close {
+    top: 16px;
+    right: 18px;
+}
+
+.lbx-nav--prev {
+    left: 16px;
+}
+
+.lbx-nav--next {
+    right: 16px;
+}
+
+@media (max-width: 800px) {
+    .ap-gallery__grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+    }
+
+    .ap-gallery__item .lbx-thumb img {
+        height: 230px;
+    }
+
+    .ab-fig--left {
+        margin-right: 18px;
+    }
+
+    .ab-fig--right {
+        margin-left: 18px;
+    }
+}
+
+@media (max-width: 640px) {
+    .ap-gallery__grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .ap-gallery__item .lbx-thumb img {
+        height: auto;
+        max-height: 420px;
+        object-fit: contain;
+    }
+
+    .ab-fig--left,
+    .ab-fig--right,
+    .ab-fig--center {
+        float: none;
+        clear: both;
+        width: 100%;
+        max-width: 100%;
+        margin: 22px 0;
+    }
+
+        .ab-fig--left .ab-thumb,
+        .ab-fig--right .ab-thumb,
+        .ab-fig--center .ab-thumb {
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+            .ab-fig .ab-thumb img,
+            .ab-fig--center .ab-thumb img {
+                max-height: 420px;
+            }
+
+    .ab-zoom,
+    .ap-gallery__item .ap-photo__zoom {
+        opacity: 1;
+    }
+
+    .lbx-overlay {
+        padding: 56px 12px 76px;
+    }
+
+    .lbx-image {
+        max-width: 96vw;
+        max-height: 82vh;
+    }
+
+    .lbx-nav {
+        top: auto;
+        bottom: 14px;
+        margin-top: 0;
+        width: 52px;
+        height: 46px;
+    }
+
+    .lbx-nav--prev {
+        left: calc(50% - 62px);
+    }
+
+    .lbx-nav--next {
+        right: calc(50% - 62px);
+    }
+
+    .lbx-close {
+        top: 10px;
+        right: 10px;
+        width: 42px;
+        height: 42px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lbx-toggle:checked ~ .lbx-overlay {
+        animation: none;
+    }
+
+    .ap-gallery__item .lbx-thumb img,
+    .lbx-close,
+    .lbx-nav {
+        transition: none;
+    }
+}
+
+/* ==========================================================
+   FINALNA POPRAWKA: zdjęcia w treści artykułu
+   left / right opływane tekstem, center zawsze na środku.
+   Nowe zdjęcie nie nakłada się na poprzednie zdjęcie.
+   ========================================================== */
+.article-body {
+    display: flow-root !important;
+    min-width: 0;
+    overflow: visible;
+}
+
+    .article-body .ab-para {
+        display: block;
+        min-width: 0;
+        margin: 0 0 1.15em;
+        white-space: pre-line;
+        overflow-wrap: break-word;
+    }
+
+    .article-body .ab-fig {
+        box-sizing: border-box;
+        min-width: 0;
+        margin-top: 8px;
+        margin-bottom: 20px;
+        white-space: normal;
+    }
+
+    .article-body .ab-fig--left {
+        float: left !important;
+        clear: both;
+        width: min(42%, 390px);
+        max-width: 42%;
+        margin-right: 26px;
+        margin-left: 0;
+    }
+
+    .article-body .ab-fig--right {
+        float: right !important;
+        clear: both;
+        width: min(42%, 390px);
+        max-width: 42%;
+        margin-right: 0;
+        margin-left: 26px;
+    }
+
+    .article-body .ab-fig--center {
+        display: block;
+        float: none !important;
+        clear: both !important;
+        width: 100%;
+        max-width: 100%;
+        margin: 30px 0;
+        text-align: center;
+    }
+
+    .article-body .ab-fig .ab-thumb {
+        position: relative;
+        display: block;
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
+
+        .article-body .ab-fig .ab-thumb img {
+            display: block;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 520px;
+            margin: 0 auto;
+            object-fit: contain;
+        }
+
+    .article-body .ab-fig--center .ab-thumb {
+        display: inline-block;
+        width: auto;
+        max-width: 100%;
+        margin: 0 auto;
+        vertical-align: top;
+    }
+
+        .article-body .ab-fig--center .ab-thumb img {
+            max-height: 620px;
+        }
+
+/* Na małych ekranach nie opływamy tekstem — zdjęcia są pełnej szerokości i po kolei. */
+@media (max-width: 640px) {
+    .article-body .ab-fig--left,
+    .article-body .ab-fig--right,
+    .article-body .ab-fig--center {
+        display: block;
+        float: none !important;
+        clear: both !important;
+        width: 100%;
+        max-width: 100%;
+        margin: 22px 0;
+    }
+
+        .article-body .ab-fig--left .ab-thumb,
+        .article-body .ab-fig--right .ab-thumb,
+        .article-body .ab-fig--center .ab-thumb {
+            display: block;
+            width: fit-content;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+
+            .article-body .ab-fig .ab-thumb img,
+            .article-body .ab-fig--center .ab-thumb img {
+                max-width: 100%;
+                max-height: 420px;
+            }
+}

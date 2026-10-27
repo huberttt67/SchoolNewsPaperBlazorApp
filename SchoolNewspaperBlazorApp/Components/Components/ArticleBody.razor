@@ -1,19 +1,29 @@
 ﻿@using System.Text.RegularExpressions
 
 <div class="article-body">
-    @foreach (var segment in Segments)
+    @foreach (var block in blocks)
     {
-        if (segment.IsImage)
+        if (block.Text is not null)
         {
-            <figure class="article-body__figure">
-                <img src="@($"/Images/{Uri.EscapeDataString(segment.Value)}")"
-                     alt="Zdjęcie w treści artykułu"
-                     loading="lazy" />
-            </figure>
+            <p class="article-body__paragraph ab-para">@block.Text</p>
         }
-        else if (!string.IsNullOrWhiteSpace(segment.Value))
+        else
         {
-            <p class="article-body__paragraph">@segment.Value</p>
+            var index = block.Index;
+
+            <figure class="@($"ab-fig ab-fig--{block.Align}")">
+                <ImageLightbox Src="@ImageUrl(index)"
+                               Alt="Zdjęcie w treści artykułu"
+                               Id="@ItemId(index)"
+                               CloseId="@CloseId"
+                               Group="@group"
+                               IsFirst="@(index == 0)"
+                               PrevId="@PrevId(index)"
+                               NextId="@NextId(index)"
+                               ThumbClass="ab-thumb">
+                    <span class="ab-zoom" aria-hidden="true">⤢</span>
+                </ImageLightbox>
+            </figure>
         }
     }
 </div>
@@ -22,48 +32,72 @@
     [Parameter]
     public string? Text { get; set; }
 
+    // Znacznik zdjęcia: [[IMG:plik.jpg]] albo [[IMG:plik.jpg|left]]
+    // (left = do lewej, right = do prawej, center = na środku).
     private static readonly Regex ImageMarker = new(
-        @"\[\[IMG:([A-Za-z0-9._-]+)\]\]",
-        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+        @"\[\[IMG:([A-Za-z0-9._-]+)(?:\|(left|right|center))?\]\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
 
-    private List<BodySegment> Segments => Parse(Text);
+    private readonly string group = "ab" + Guid.NewGuid().ToString("N")[..6];
 
-    private static List<BodySegment> Parse(string? value)
+    private List<Block> blocks = new();
+    private List<string> files = new();
+
+    private string CloseId => $"{group}-x";
+
+    private string ItemId(int index) => $"{group}-{index}";
+
+    private string ImageUrl(int index) =>
+        $"/Images/{Uri.EscapeDataString(files[index])}";
+
+    private string? PrevId(int index) =>
+        files.Count > 1 ? ItemId((index - 1 + files.Count) % files.Count) : null;
+
+    private string? NextId(int index) =>
+        files.Count > 1 ? ItemId((index + 1) % files.Count) : null;
+
+    protected override void OnParametersSet() => Parse(Text);
+
+    private void Parse(string? value)
     {
-        var result = new List<BodySegment>();
+        blocks = new List<Block>();
+        files = new List<string>();
 
         if (string.IsNullOrEmpty(value))
-            return result;
+        {
+            return;
+        }
 
         var position = 0;
 
         foreach (Match match in ImageMarker.Matches(value))
         {
-            if (match.Index > position)
-                result.Add(new BodySegment(false, TrimNewLines(value[position..match.Index])));
+            AddText(value[position..match.Index]);
 
-            var fileName = match.Groups[1].Value;
+            files.Add(match.Groups[1].Value);
 
-            if (string.Equals(
-                fileName,
-                Path.GetFileName(fileName),
-                StringComparison.Ordinal))
-            {
-                result.Add(new BodySegment(true, fileName));
-            }
+            var align = match.Groups[2].Success
+                ? match.Groups[2].Value.ToLowerInvariant()
+                : "center"; // stare artykuły bez ułożenia zostają na środku
 
+            blocks.Add(new Block(null, files.Count - 1, align));
             position = match.Index + match.Length;
         }
 
-        if (position < value.Length)
-            result.Add(new BodySegment(false, TrimNewLines(value[position..])));
-
-        return result;
+        AddText(value[position..]);
     }
 
     // Zdjęcia są wstawiane z pustymi liniami wokół znacznika. Obcinamy je,
     // żeby nad i pod akapitem nie powstawały dodatkowe, puste odstępy.
-    private static string TrimNewLines(string value) => value.Trim('\r', '\n');
+    private void AddText(string raw)
+    {
+        var text = raw.Trim('\r', '\n');
 
-    private sealed record BodySegment(bool IsImage, string Value);
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            blocks.Add(new Block(text, -1, "center"));
+        }
+    }
+
+    private sealed record Block(string? Text, int Index, string Align);
 }
