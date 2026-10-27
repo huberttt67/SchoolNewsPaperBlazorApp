@@ -1,8 +1,12 @@
 ﻿@inherits LayoutComponentBase
 @using Microsoft.AspNetCore.Components.Authorization
 @using Microsoft.AspNetCore.WebUtilities
+@using System.Security.Claims
 @using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Repository
 @inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthStateProvider
+@inject IPermissionRepository PermissionRepository
 
 <div class="site-shell">
     <div id="toast-container"
@@ -68,15 +72,16 @@
                     <span>Twoje szkolne centrum informacji</span>
                 </div>
 
-                <AuthorizeView>
-                    <Authorized>
-                        <NavLink class="admin-link" href="/adminPanel">
-                            <span class="admin-link__icon">⚙</span>
-                            Panel administratora
-                            <span>↗</span>
-                        </NavLink>
-                    </Authorized>
-                </AuthorizeView>
+                @* Link do panelu tylko dla osób z dostępem do panelu i nie
+                   na samej stronie panelu (tam by nic nie robił). *@
+                @if (ShowAdminLink)
+                {
+                    <NavLink class="admin-link" href="/adminPanel">
+                        <span class="admin-link__icon">⚙</span>
+                        Panel administratora
+                        <span>↗</span>
+                    </NavLink>
+                }
             </div>
         </div>
     </header>
@@ -116,6 +121,9 @@
 
             <span class="site-footer__copyright">
                 © @DateTime.Now.Year ETI
+                <span class="site-footer__credits">
+                    Wykonanie: Uczniowie 3TA w ramach praktyk 2026r.
+                </span>
             </span>
 
         </div>
@@ -123,6 +131,48 @@
 </div>
 
 @code {
+    private bool hasPanelAccess;
+
+    private bool IsOnAdminPanelPage
+    {
+        get
+        {
+            var path = new Uri(Nav.Uri).AbsolutePath.TrimEnd('/');
+
+            return string.Equals(path, "/adminPanel", StringComparison.OrdinalIgnoreCase) ||
+                   string.Equals(path, "/admin/permissions", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private bool ShowAdminLink => hasPanelAccess && !IsOnAdminPanelPage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        hasPanelAccess = false;
+
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+
+            if (user.Identity?.IsAuthenticated == true &&
+                int.TryParse(
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out var userId))
+            {
+                var permissions =
+                    await PermissionRepository.GetUserPermissionsAsync(userId);
+
+                hasPanelAccess = PanelAccess.HasAccess(permissions);
+            }
+        }
+        catch
+        {
+            // Nie udało się sprawdzić uprawnień - nie pokazujemy linku.
+            hasPanelAccess = false;
+        }
+    }
+
     // Menu i stopka pokazują tylko te trzy główne rodzaje, niezależnie od liczby rodzajów w enumie.
     private static readonly ArticleType[] MenuTypes =
     {

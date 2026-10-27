@@ -40,7 +40,7 @@
         foreach (Match match in ImageMarker.Matches(value))
         {
             if (match.Index > position)
-                result.Add(new BodySegment(false, value[position..match.Index]));
+                result.Add(new BodySegment(false, TrimNewLines(value[position..match.Index])));
 
             var fileName = match.Groups[1].Value;
 
@@ -56,10 +56,14 @@
         }
 
         if (position < value.Length)
-            result.Add(new BodySegment(false, value[position..]));
+            result.Add(new BodySegment(false, TrimNewLines(value[position..])));
 
         return result;
     }
+
+    // Zdjęcia są wstawiane z pustymi liniami wokół znacznika. Obcinamy je,
+    // żeby nad i pod akapitem nie powstawały dodatkowe, puste odstępy.
+    private static string TrimNewLines(string value) => value.Trim('\r', '\n');
 
     private sealed record BodySegment(bool IsImage, string Value);
 }

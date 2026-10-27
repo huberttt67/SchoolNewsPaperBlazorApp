@@ -243,24 +243,27 @@ else
                     </span>
                 </button>
 
-                <button type="button"
-                        class="admin-action"
-                        @onclick="OpenSubstitutions">
-                    <span class="admin-action__number">07</span>
-                    <span class="admin-action__icon">📅</span>
+                @if (CanSeeSubstitutions)
+                {
+                    <button type="button"
+                            class="admin-action"
+                            @onclick="OpenSubstitutions">
+                        <span class="admin-action__number">07</span>
+                        <span class="admin-action__icon">📅</span>
 
-                    <strong>Zastępstwa</strong>
+                        <strong>Zastępstwa</strong>
 
-                    <span class="admin-action__description">
-                        Dodawaj zastępstwa, wybieraj nauczycieli,
-                        ustalaj numery lekcji i godziny.
-                    </span>
+                        <span class="admin-action__description">
+                            Dodawaj zastępstwa, wybieraj nauczycieli,
+                            ustalaj numery lekcji i godziny.
+                        </span>
 
-                    <span class="admin-action__footer">
-                        Zarządzaj zastępstwami
-                        <span>→</span>
-                    </span>
-                </button>
+                        <span class="admin-action__footer">
+                            Zarządzaj zastępstwami
+                            <span>→</span>
+                        </span>
+                    </button>
+                }
             </div>
 
             <section class="admin-section">
@@ -454,7 +457,7 @@ else
             }
             else if (view == 3)
             {
-                <section class="admin-content-panel">
+                <section id="article-edit-form" class="admin-content-panel">
                     <div class="admin-content-panel__header">
                         <div>
                             <span class="admin-section-heading__eyebrow">
@@ -882,6 +885,11 @@ else
                                 var userPermissionsList = GetPermissionsForCategory(
                                     EnumPermission.ViewUsers,
                                     EnumPermission.ManageUsers);
+
+                                var substitutePermissions = GetPermissionsForCategory(
+                                    EnumPermission.CreateSubstitutions,
+                                    EnumPermission.EditSubstitutions,
+                                    EnumPermission.DeleteSubstitutions);
                             }
 
                             @if (articlePermissions.Count > 0)
@@ -930,6 +938,41 @@ else
                                     </div>
 
                                     @foreach (var permission in userPermissionsList)
+                                    {
+                                        <div class="permission-row"
+                                             @key="@($"{permission.Id}-{permissionsRenderVersion}")">
+                                            <div class="permission-row__text">
+                                                <strong>@GetPermissionTitle(permission.Name)</strong>
+                                                <small>@permission.Description</small>
+                                            </div>
+
+                                            <label class="permission-switch"
+                                                   for="@($"permission-{permission.Id}")">
+                                                <input id="@($"permission-{permission.Id}")"
+                                                       type="checkbox"
+                                                       checked="@selectedPermissions.Contains(permission.Name)"
+                                                       disabled="@(savingPermissions.Contains(permission.Name) || PermissionsLocked)"
+                                                       @onchange="(e) => TogglePermissionAsync(permission.Name, e)" />
+                                                <span class="permission-switch__track"></span>
+                                            </label>
+                                        </div>
+                                    }
+                                </section>
+                            }
+
+
+                            @if (substitutePermissions.Count > 0)
+                            {
+                                <section class="permission-category">
+                                    <div class="permission-category__header">
+                                        <span class="permission-category__icon">📅</span>
+                                        <div>
+                                            <h3>Zastępstwa</h3>
+                                            <p>Plan zastępstw i baza nauczycieli</p>
+                                        </div>
+                                    </div>
+
+                                    @foreach (var permission in substitutePermissions)
                                     {
                                         <div class="permission-row"
                                              @key="@($"{permission.Id}-{permissionsRenderVersion}")">
@@ -1057,6 +1100,9 @@ else
 @code {
     private int view = 0;
 
+    // Id elementu, do którego strona ma się przewinąć po następnym renderze.
+    private string? scrollTargetId;
+
     private List<Article> articleList = new();
     private Article? selectedArticle;
 
@@ -1122,6 +1168,27 @@ else
                 // JS jeszcze niedostępny (prerendering) - pomijamy.
             }
         }
+
+        if (scrollTargetId is not null)
+        {
+            var target = scrollTargetId;
+            scrollTargetId = null;
+
+            try
+            {
+                // Wbudowana funkcja przeglądarki - nie wymaga żadnego własnego pliku JS.
+                await JS.InvokeVoidAsync("window.scrollTo", 0, 0);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (JSException)
+            {
+            }
+        }
     }
 
     private string newUserLogin = string.Empty;
@@ -1158,6 +1225,11 @@ else
     private bool Can(EnumPermission permission) =>
         IsSuperAdmin || currentUserPermissions.Contains(permission);
 
+    private bool CanSeeSubstitutions =>
+        Can(EnumPermission.CreateSubstitutions) ||
+        Can(EnumPermission.EditSubstitutions) ||
+        Can(EnumPermission.DeleteSubstitutions);
+
     private bool CanViewArticleList =>
         Can(EnumPermission.CreateArticles) ||
         Can(EnumPermission.EditArticles) ||
@@ -1165,15 +1237,7 @@ else
 
     // Uprawnienia, które wpuszczają do panelu.
     private static readonly EnumPermission[] PanelPermissions =
-    {
-        EnumPermission.Master,
-        EnumPermission.AccessAdminPanel,
-        EnumPermission.CreateArticles,
-        EnumPermission.EditArticles,
-        EnumPermission.DeleteArticles,
-        EnumPermission.ViewUsers,
-        EnumPermission.ManageUsers
-    };
+        PanelAccess.Permissions;
 
     private bool isLoadingPermissions;
 
@@ -1330,6 +1394,9 @@ else
         successMessage = null;
         selectedArticle = article;
         view = 3;
+
+        // Po kliknięciu „Edytuj” przenosimy użytkownika do formularza edycji.
+        scrollTargetId = "article-edit-form";
     }
 
     private void OpenAddUser()
@@ -1952,6 +2019,9 @@ else
             EnumPermission.DeleteArticles => "Usuwanie artykułów",
             EnumPermission.ViewUsers => "Wyświetlanie użytkowników",
             EnumPermission.ManageUsers => "Zarządzanie użytkownikami",
+            EnumPermission.CreateSubstitutions => "Dodawanie zastępstw",
+            EnumPermission.EditSubstitutions => "Edytowanie zastępstw",
+            EnumPermission.DeleteSubstitutions => "Usuwanie zastępstw",
             EnumPermission.CreateAnnouncements => "Dodawanie ogłoszeń",
             EnumPermission.EditAnnouncements => "Edytowanie ogłoszeń",
             EnumPermission.DeleteAnnouncements => "Usuwanie ogłoszeń",
@@ -2067,8 +2137,20 @@ else
             return "Brak treści artykułu.";
         }
 
-        return articleText.Length > 180
-            ? articleText[..180] + "..."
-            : articleText;
+        var clean = System.Text.RegularExpressions.Regex
+            .Replace(articleText, @"\[\[IMG:[A-Za-z0-9._-]+\]\]", " ")
+            .Trim();
+
+        clean = System.Text.RegularExpressions.Regex
+            .Replace(clean, @"\s+", " ");
+
+        if (clean.Length == 0)
+        {
+            return "Artykuł zawiera tylko zdjęcia.";
+        }
+
+        return clean.Length > 180
+            ? clean[..180] + "..."
+            : clean;
     }
 }

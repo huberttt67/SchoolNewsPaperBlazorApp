@@ -8,24 +8,31 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.EntityFrameworkCore
 @using Microsoft.JSInterop
+@using System.Security.Claims
 @using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Repository
 
 @inject IDbContextFactory<NewspaperDbContext> DbFactory
 @inject AuthenticationStateProvider AuthStateProvider
 @inject ILogger<Substitutions> Logger
 @inject IJSRuntime JS
 @inject NavigationManager Navigation
+@inject IPermissionRepository PermissionRepository
 
 <PageTitle>Zastępstwa | Gazetka ETI</PageTitle>
 
 <div class="sub-page">
     <div class="admin-back-row">
-        <button type="button"
-                class="admin-back-button"
-                @onclick='() => Navigation.NavigateTo("/adminPanel")'>
-            <span>←</span>
-            Wróć do panelu
-        </button>
+        @* Przycisk tylko dla osób, które mają dostęp do panelu. *@
+        @if (canOpenPanel)
+        {
+            <button type="button"
+                    class="admin-back-button"
+                    @onclick='() => Navigation.NavigateTo("/adminPanel")'>
+                <span>←</span>
+                Wróć do panelu
+            </button>
+        }
 
         <div class="admin-current-view">
             <span class="site-status__dot"></span>
@@ -53,10 +60,11 @@
         <div class="sub-alert sub-alert--success">✓ @successMessage</div>
     }
 
-    @if (hasPermission)
+    @if (canCreate || canEdit)
     {
         <div class="sub-layout">
-            <section class="sub-panel sub-form-panel">
+            <section id="substitute-form"
+                     class="sub-panel sub-form-panel @(editingSubstituteId.HasValue ? "sub-panel--editing" : "")">
                 <div class="sub-panel__heading">
                     <div class="sub-heading-icon">＋</div>
                     <div>
@@ -103,7 +111,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                                                    : $" · {teacher.Subject}")
+                                                                                                                                                        : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -130,7 +138,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                                                    : $" · {teacher.Subject}")
+                                                                                                                                                        : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -208,7 +216,8 @@
                 </EditForm>
             </section>
 
-            <aside class="sub-panel sub-teachers-panel">
+            <aside id="teacher-form"
+                   class="sub-panel sub-teachers-panel @(editingTeacherId.HasValue ? "sub-panel--editing" : "")">
                 <div class="sub-panel__heading">
                     <div class="sub-heading-icon">♙</div>
                     <div>
@@ -285,19 +294,25 @@
                                     </span>
                                 </div>
 
-                                <button type="button"
-                                        class="sub-icon-button"
-                                        title="Edytuj nauczyciela"
-                                        @onclick="() => EditTeacher(teacher)">
-                                    ✎
-                                </button>
+                                @if (canEdit)
+                                {
+                                    <button type="button"
+                                            class="sub-icon-button"
+                                            title="Edytuj nauczyciela"
+                                            @onclick="() => EditTeacher(teacher)">
+                                        ✎
+                                    </button>
+                                }
 
-                                <button type="button"
-                                        class="sub-icon-button"
-                                        title="Usuń nauczyciela"
-                                        @onclick="() => RemoveTeacherAsync(teacher)">
-                                    ×
-                                </button>
+                                @if (canDelete)
+                                {
+                                    <button type="button"
+                                            class="sub-icon-button"
+                                            title="Usuń nauczyciela"
+                                            @onclick="() => RemoveTeacherAsync(teacher)">
+                                        ×
+                                    </button>
+                                }
                             </div>
                         }
                     }
@@ -355,7 +370,7 @@
                             <th>Nauczyciel zastępujący</th>
                             <th>Nauczyciel zastępowany</th>
                             <th>Informacje</th>
-                            @if (hasPermission)
+                            @if (canEdit || canDelete)
                             {
                                 <th>Akcje</th>
                             }
@@ -402,21 +417,27 @@
 
                                 <td>@(string.IsNullOrWhiteSpace(item.Notes) ? "—" : item.Notes)</td>
 
-                                @if (hasPermission)
+                                @if (canEdit || canDelete)
                                 {
                                     <td>
                                         <div class="sub-form-actions">
-                                            <button type="button"
-                                                    class="sub-button sub-button--secondary"
-                                                    @onclick="() => EditSubstitute(item)">
-                                                Edytuj
-                                            </button>
+                                            @if (canEdit)
+                                            {
+                                                <button type="button"
+                                                        class="sub-button sub-button--secondary"
+                                                        @onclick="() => EditSubstitute(item)">
+                                                    Edytuj
+                                                </button>
+                                            }
 
-                                            <button type="button"
-                                                    class="sub-delete"
-                                                    @onclick="() => RemoveSubstituteAsync(item)">
-                                                Usuń
-                                            </button>
+                                            @if (canDelete)
+                                            {
+                                                <button type="button"
+                                                        class="sub-delete"
+                                                        @onclick="() => RemoveSubstituteAsync(item)">
+                                                    Usuń
+                                                </button>
+                                            }
                                         </div>
                                     </td>
                                 }
@@ -430,7 +451,16 @@
 </div>
 
 @code {
-    private bool hasPermission;
+    // Osobne uprawnienia (Master ma wszystkie).
+    private bool canCreate;
+    private bool canEdit;
+    private bool canDelete;
+
+    // true = ma dostęp do panelu administracyjnego (pokazujemy „Wróć do panelu”).
+    private bool canOpenPanel;
+
+    // Id elementu, do którego strona ma się przewinąć po następnym renderze.
+    private string? scrollTargetId;
     private bool isLoading = true;
     private bool isSaving;
     private bool isSavingTeacher;
@@ -474,16 +504,7 @@
     {
         try
         {
-            var state = await AuthStateProvider.GetAuthenticationStateAsync();
-            var user = state.User;
-
-            hasPermission = user.Identity?.IsAuthenticated == true &&
-                user.Claims.Any(c =>
-                    c.Type == "permission" &&
-                    (c.Value == EnumPermission.Master.ToString() ||
-                     c.Value == EnumPermission.CreateAnnouncements.ToString() ||
-                     c.Value == EnumPermission.ManageUsers.ToString() ||
-                     c.Value == EnumPermission.AccessAdminPanel.ToString()));
+            await RefreshPermissionsAsync();
 
             await LoadDataAsync();
         }
@@ -495,6 +516,76 @@
         finally
         {
             isLoading = false;
+        }
+    }
+
+    // Uprawnienia są czytane z bazy, więc nadanie lub odebranie
+    // uprawnienia działa od razu, bez ponownego logowania.
+    private async Task RefreshPermissionsAsync()
+    {
+        canCreate = false;
+        canEdit = false;
+        canDelete = false;
+        canOpenPanel = false;
+
+        try
+        {
+            var state = await AuthStateProvider.GetAuthenticationStateAsync();
+            var user = state.User;
+
+            if (user.Identity?.IsAuthenticated != true ||
+                !int.TryParse(
+                    user.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                    out var userId))
+            {
+                return;
+            }
+
+            var permissions =
+                await PermissionRepository.GetUserPermissionsAsync(userId);
+
+            var isMaster = permissions.Contains(EnumPermission.Master);
+
+            canCreate = isMaster ||
+                permissions.Contains(EnumPermission.CreateSubstitutions);
+
+            canEdit = isMaster ||
+                permissions.Contains(EnumPermission.EditSubstitutions);
+
+            canDelete = isMaster ||
+                permissions.Contains(EnumPermission.DeleteSubstitutions);
+
+            canOpenPanel = PanelAccess.HasAccess(permissions);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się sprawdzić uprawnień.");
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (scrollTargetId is null)
+        {
+            return;
+        }
+
+        var target = scrollTargetId;
+        scrollTargetId = null;
+
+        try
+        {
+            // Wbudowana funkcja przeglądarki - nie wymaga żadnego własnego pliku JS.
+            await JS.InvokeVoidAsync("window.scrollTo", 0, 0);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (JSException)
+        {
         }
     }
 
@@ -575,6 +666,9 @@
         // Przy edycji zachowujemy godziny zapisane w bazie.
         startTime = item.StartTime.ToString(@"hh\:mm");
         endTime = item.EndTime.ToString(@"hh\:mm");
+
+        // Przenosimy użytkownika do formularza edycji.
+        scrollTargetId = "substitute-form";
     }
 
     private void CancelEdit()
@@ -595,9 +689,13 @@
         errorMessage = null;
         successMessage = null;
 
-        if (!hasPermission)
+        await RefreshPermissionsAsync();
+
+        if (editingSubstituteId.HasValue ? !canEdit : !canCreate)
         {
-            errorMessage = "Nie masz uprawnień do zarządzania zastępstwami.";
+            errorMessage = editingSubstituteId.HasValue
+                ? "Nie masz uprawnień do edytowania zastępstw."
+                : "Nie masz uprawnień do dodawania zastępstw.";
             return;
         }
 
@@ -758,6 +856,9 @@
             FullName = teacher.FullName,
             Subject = teacher.Subject
         };
+
+        // Przenosimy użytkownika do formularza nauczyciela.
+        scrollTargetId = "teacher-form";
     }
 
     private void CancelTeacherEdit()
@@ -774,9 +875,13 @@
         errorMessage = null;
         successMessage = null;
 
-        if (!hasPermission)
+        await RefreshPermissionsAsync();
+
+        if (editingTeacherId.HasValue ? !canEdit : !canCreate)
         {
-            errorMessage = "Nie masz uprawnień do zarządzania nauczycielami.";
+            errorMessage = editingTeacherId.HasValue
+                ? "Nie masz uprawnień do edytowania nauczycieli."
+                : "Nie masz uprawnień do dodawania nauczycieli.";
             return;
         }
 
@@ -857,6 +962,14 @@
         errorMessage = null;
         successMessage = null;
 
+        await RefreshPermissionsAsync();
+
+        if (!canDelete)
+        {
+            errorMessage = "Nie masz uprawnień do usuwania nauczycieli.";
+            return;
+        }
+
         bool confirmed;
 
         try
@@ -914,6 +1027,14 @@
     {
         errorMessage = null;
         successMessage = null;
+
+        await RefreshPermissionsAsync();
+
+        if (!canDelete)
+        {
+            errorMessage = "Nie masz uprawnień do usuwania zastępstw.";
+            return;
+        }
 
         bool confirmed;
 

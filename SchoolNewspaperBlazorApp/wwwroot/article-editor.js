@@ -93,3 +93,12 @@
         return element.value;
     };
 })();
+
+// Płynne przewinięcie strony do elementu (np. do formularza edycji).
+window.scrollToElementById = function (id) {
+    var element = document.getElementById(id);
+
+    if (element && typeof element.scrollIntoView === 'function') {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+};

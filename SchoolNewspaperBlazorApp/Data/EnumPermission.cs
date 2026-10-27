@@ -1,4 +1,4 @@
-﻿﻿namespace SchoolNewspaperBlazorApp.Data
+﻿namespace SchoolNewspaperBlazorApp.Data
 {
     public enum EnumPermission
     {
@@ -14,6 +14,9 @@
         CreateAnnouncements = 9,
         EditAnnouncements = 10,
         DeleteAnnouncements = 11,
-        Master = 12
+        Master = 12,
+        CreateSubstitutions = 13,
+        EditSubstitutions = 14,
+        DeleteSubstitutions = 15
     }
 }

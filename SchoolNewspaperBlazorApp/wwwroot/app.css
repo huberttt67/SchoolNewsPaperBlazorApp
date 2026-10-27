@@ -5165,6 +5165,7 @@ textarea.form-control {
         align-items: flex-start;
     }
 }
+
 ```css
 /* ==========================================
    GAZETKA ETI — STRONA ZASTĘPSTW
@@ -5847,6 +5848,7 @@ textarea.form-control {
     .home-substitutions-page__button:hover {
         background: #122f55;
     }
+
 ```css
 /* =========================================
    GAZETKA ETI — KATEGORIE I ZASTĘPSTWA
@@ -7367,4 +7369,195 @@ textarea.form-control {
     .af-thumb > a img {
         height: 190px;
     }
+}
+
+/* ========== ZASTĘPSTWA: przejście do edycji ========== */
+
+.sub-form-panel,
+.sub-teachers-panel {
+    scroll-margin-top: 110px;
+}
+
+.sub-panel--editing {
+    border-color: var(--eti-blue);
+    box-shadow: var(--eti-ring), var(--eti-shadow);
+}
+
+/* ========== TREŚĆ ARTYKUŁU: akapity i zdjęcia w tekście ========== */
+
+/* .ap-content ma white-space: pre-line (zachowuje enter w tekście).
+   Dla bloku z akapitami i zdjęciami wyłączamy to na poziomie kontenera,
+   a zachowujemy tylko w samych akapitach. */
+.ap-content .article-body {
+    white-space: normal;
+}
+
+.article-body__paragraph {
+    margin: 0 0 1.25em;
+    white-space: pre-line;
+}
+
+.article-body__figure {
+    margin: 34px 0;
+    padding: 0;
+    text-align: center;
+}
+
+    .article-body__figure img {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        max-height: 640px;
+        height: auto;
+        margin: 0 auto;
+        object-fit: contain;
+        border: 1px solid var(--eti-border);
+        border-radius: 16px;
+        background: var(--eti-tint);
+        box-shadow: var(--eti-shadow);
+    }
+
+@media (max-width: 640px) {
+    .article-body__figure {
+        margin: 24px 0;
+    }
+
+        .article-body__figure img {
+            max-height: 420px;
+            border-radius: 12px;
+        }
+}
+
+/* ========== STOPKA: podpis wykonawców ========== */
+
+.site-footer__copyright {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    white-space: normal;
+    text-align: right;
+}
+
+.site-footer__credits {
+    color: var(--eti-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+}
+
+@media (max-width: 900px) {
+    .site-footer__copyright {
+        align-items: flex-start;
+        text-align: left;
+    }
+}
+/* ========== STOPKA: podpis wykonawców ========== */
+
+.site-footer__copyright {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    white-space: normal;
+    text-align: right;
+}
+
+.site-footer__credits {
+    color: var(--eti-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: .3px;
+}
+
+@media (max-width: 900px) {
+    .site-footer__copyright {
+        align-items: flex-start;
+        text-align: left;
+    }
+}
+/* ========== PANEL: przejście do edycji artykułu ========== */
+
+#article-edit-form {
+    scroll-margin-top: 110px;
+}
+/* ========== ZDJĘCIA: równe skalowanie w podglądach i w tekście ========== */
+
+/* --- Karty artykułów na stronie głównej: stałe proporcje 16:10,
+       zdjęcie wypełnia kartę bez rozciągania --- */
+.article-card__img-wrap {
+    height: auto;
+    aspect-ratio: 16 / 10;
+}
+
+    .article-card__img-wrap .article-card__img {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center 35%;
+    }
+
+    .article-card__img-wrap .type-badge {
+        z-index: 2;
+    }
+
+/* --- Zdjęcie główne na stronie artykułu: pokazujemy całe zdjęcie
+       (bez ucinania), a wolne miejsce wypełnia jasne tło --- */
+.ap-cover {
+    background: var(--eti-tint);
+}
+
+    .ap-cover img {
+        width: 100%;
+        height: auto;
+        max-height: 520px;
+        object-fit: contain;
+    }
+
+/* --- Podgląd w panelu (formularz artykułu) --- */
+.af-preview__cover {
+    height: auto;
+    max-height: 420px;
+    object-fit: contain;
+    background: #eef3f9;
+}
+
+.af-preview-article__cover {
+    display: flex;
+    justify-content: center;
+    background: #eef3f9;
+}
+
+    .af-preview-article__cover img {
+        width: 100%;
+        height: auto;
+        max-height: 420px;
+        object-fit: contain;
+    }
+
+/* --- Zdjęcia w treści artykułu: wyśrodkowane, nie większe niż
+       kolumna tekstu, małe zdjęcia nie są powiększane --- */
+.article-body__figure {
+    margin: 34px auto;
+    max-width: 100%;
+}
+
+    .article-body__figure img {
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: 620px;
+        object-fit: contain;
+    }
+
+@media (max-width: 640px) {
+    .article-body__figure {
+        margin: 22px auto;
+    }
+
+        .article-body__figure img {
+            max-height: 420px;
+        }
 }

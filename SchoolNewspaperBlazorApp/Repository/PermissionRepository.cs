@@ -506,9 +506,8 @@ namespace SchoolNewspaperBlazorApp.Repository
         private async Task EnsurePermissionsExistAsync(
             NewspaperDbContext context)
         {
-            var existingNames = await context.Permissions
-                .Select(p => p.Name)
-                .ToListAsync();
+            var existing = await context.Permissions.ToListAsync();
+            var existingNames = existing.Select(p => p.Name).ToList();
 
             var descriptions = new Dictionary<EnumPermission, string>
             {
@@ -545,9 +544,39 @@ namespace SchoolNewspaperBlazorApp.Repository
                 [EnumPermission.DeleteAnnouncements] =
                     "Usuwanie ogłoszeń",
 
+                [EnumPermission.CreateSubstitutions] =
+                    "Dodawanie zastępstw i nauczycieli",
+
+                [EnumPermission.EditSubstitutions] =
+                    "Edytowanie zastępstw i nauczycieli",
+
+                [EnumPermission.DeleteSubstitutions] =
+                    "Usuwanie zastępstw i nauczycieli",
+
                 [EnumPermission.Master] =
                     "Administrator główny (pełny dostęp)"
             };
+
+            // Odświeżamy opisy i nazwy istniejących wierszy (np. po zmianie
+            // nazwy uprawnienia w kodzie), żeby w bazie nie zostały stare.
+            var refreshed = false;
+
+            foreach (var row in existing)
+            {
+                if (descriptions.TryGetValue(row.Name, out var description) &&
+                    (row.Description != description ||
+                     row.PermissionName != row.Name.ToString()))
+                {
+                    row.Description = description;
+                    row.PermissionName = row.Name.ToString();
+                    refreshed = true;
+                }
+            }
+
+            if (refreshed)
+            {
+                await context.SaveChangesAsync();
+            }
 
             var missingPermissions = descriptions
                 .Where(item => !existingNames.Contains(item.Key))
