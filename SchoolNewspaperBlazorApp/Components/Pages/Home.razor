@@ -7,6 +7,7 @@
 
 @inject IArticleService articleService
 @inject IDbContextFactory<NewspaperDbContext> DbFactory
+@using Microsoft.AspNetCore.Http
 
 <PageTitle>@SectionTitle | Gazetka ETI</PageTitle>
 
@@ -26,6 +27,15 @@
         </a>
     </div>
 </section>
+
+@if (ShowFeatured && pinned.Count > 0)
+{
+    <section class="home-pinned" aria-label="Przypięte artykuły">
+        <div class="home-pinned__label">📌 Przypięte</div>
+        <ArticleCard Articles="pinned" permissions="false" />
+    </section>
+}
+
 
 <div class="section-heading" id="aktualnosci">
     <div>
@@ -55,6 +65,10 @@
        class="article-tab @(IsSubstitutionsTab ? "is-active" : "")"
        aria-current="@(IsSubstitutionsTab ? "page" : null)">
         Zastępstwa
+        @if (todayCountForClass > 0)
+        {
+            <span class="article-tab__badge" title="Zastępstwa dziś dla klasy @SelectedClass">@todayCountForClass</span>
+        }
     </a>
 </nav>
 
@@ -66,7 +80,7 @@
         <select id="klasa"
                 name="klasa"
                 class="home-class-filter__select"
-                onchange="this.form.submit()">
+                onchange="document.cookie='eti-klasa='+encodeURIComponent(this.value)+';path=/;max-age=31536000;SameSite=Lax';this.form.submit()">
             <option value="">Wszystkie klasy</option>
             @foreach (var className in ClassNames)
             {
@@ -74,6 +88,10 @@
             }
         </select>
         <noscript><button type="submit" class="home-class-filter__button">Pokaż</button></noscript>
+        @if (SelectedClass is not null)
+        {
+            <span class="home-class-filter__hint">Twoja klasa jest zapamiętana w tej przeglądarce.</span>
+        }
     </form>
 
     @if (substitutionsLoading)
@@ -96,85 +114,157 @@
     }
     else
     {
-        <div class="home-substitutions__grid">
-            @foreach (var item in FilteredSubstitutions)
-            {
-                <article class="home-substitution-card" @key="item.Id">
-                    <div class="home-substitution-card__date">
-                        <strong>@item.SubstituteDate.ToString("dd")</strong>
-                        <span>
-                            @item.SubstituteDate.ToString(
-                                "MMM",
-                                new System.Globalization.CultureInfo("pl-PL"))
-                        </span>
-                    </div>
+        @SubGroup("Dziś", "today", TodayList, DateTime.Today, true)
+        @SubGroup("Jutro", "tomorrow", TomorrowList, DateTime.Today.AddDays(1), true)
 
-                    <div class="home-substitution-card__body">
-                        <div class="home-substitution-card__lesson">
-                            @item.LessonNumber. lekcja ·
-                            @item.StartTime.ToString(@"hh\:mm")–@item.EndTime.ToString(@"hh\:mm")
-                        </div>
+        @if (LaterList.Count > 0)
+        {
+            @SubGroup("Nadchodzące", "later", LaterList, null, false)
+        }
 
-                        <h3>@(item.Teacher?.FullName ?? "Nie podano nauczyciela")</h3>
-
-                        <p>
-                            Zastępuje:
-                            <strong>@(item.OriginalTeacher?.FullName ?? "nie podano")</strong>
-                        </p>
-
-                        @if (!string.IsNullOrWhiteSpace(item.ClassName))
-                        {
-                            <p>
-                                Klasa: <strong>@item.ClassName</strong>
-                            </p>
-                        }
-
-                        @if (item.Room is not null)
-                        {
-                            <p>
-                                Sala: <strong>@item.Room.Name</strong>
-                            </p>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(item.Reason))
-                        {
-                            <span>@item.Reason</span>
-                        }
-
-                        @if (!string.IsNullOrWhiteSpace(item.Notes))
-                        {
-                            <p>@item.Notes</p>
-                        }
-                    </div>
-                </article>
-            }
-        </div>
+        @if (PastList.Count > 0)
+        {
+            <details class="home-sub-archive">
+                <summary>Archiwum (@PastList.Count)</summary>
+                @SubGroup("Minione", "past", PastList, null, false)
+            </details>
+        }
     }
-}
-else if (articles.Count > 0)
-{
-    <ArticleCard Articles="articles" permissions="false" />
+
 }
 else
 {
-    <div class="type-empty">
-        <span aria-hidden="true">▤</span>
-        <h3>Brak artykułów</h3>
-        <p>@EmptyMessage</p>
-    </div>
+    <form method="get" action="/" class="home-search" role="search">
+        @if (ActiveType is { } currentType)
+        {
+            <input type="hidden" name="typ" value="@currentType.Slug()" />
+        }
+        @if (!string.IsNullOrEmpty(SelectedTag))
+        {
+            <input type="hidden" name="tag" value="@SelectedTag" />
+        }
+        <input type="search"
+               name="q"
+               value="@Query"
+               class="home-search__input"
+               placeholder="Szukaj w artykułach…"
+               maxlength="100"
+               aria-label="Szukaj w artykułach" />
+        <button type="submit" class="home-search__button">Szukaj</button>
+        @if (HasFilter)
+        {
+            <a class="home-search__clear" href="@BuildUrl(ActiveType, null, null)">Wyczyść filtry ✕</a>
+        }
+    </form>
+
+    @if (allTags.Count > 0)
+    {
+        <div class="home-tags" aria-label="Filtr po tagach">
+            @foreach (var tag in allTags)
+            {
+                var active = string.Equals(tag, SelectedTag, StringComparison.OrdinalIgnoreCase);
+
+                <a class="home-tag @(active ? "is-active" : "")"
+                   href="@BuildUrl(ActiveType, active ? null : tag, Query)">#@tag</a>
+            }
+        </div>
+    }
+
+    @if (MainList.Count > 0)
+    {
+        var visible = MainList.Take(CurrentLimit).ToList();
+        var previous = PreviousLimit;
+
+        <div class="home-batch">
+            <ArticleCard Articles="@(previous > 0 ? visible.Take(previous).ToList() : visible)" permissions="false" />
+        </div>
+
+        @if (previous > 0 && visible.Count > previous)
+        {
+            <div id="wiecej" class="home-more-anchor"></div>
+
+            <div class="home-batch">
+                <ArticleCard Articles="@(visible.Skip(previous).ToList())" permissions="false" />
+            </div>
+        }
+
+        @if (MainList.Count > CurrentLimit)
+        {
+            <div class="home-more">
+                <a class="home-more__button"
+                   href="@BuildUrl(ActiveType, SelectedTag, Query, CurrentLimit + PageStep, "wiecej")">
+                    Załaduj więcej (jeszcze @(MainList.Count - CurrentLimit))
+                </a>
+            </div>
+        }
+    }
+    else if (HasFilter)
+    {
+        <div class="type-empty">
+            <span aria-hidden="true">🔍</span>
+            <h3>Brak wyników</h3>
+            <p>Nie znaleziono artykułów pasujących do wybranych filtrów.</p>
+        </div>
+    }
+    else if (!(ShowFeatured && pinned.Count > 0))
+    {
+        <div class="type-empty">
+            <span aria-hidden="true">▤</span>
+            <h3>Brak artykułów</h3>
+            <p>@EmptyMessage</p>
+        </div>
+    }
+
+    @if (ShowFeatured && mostRead.Count > 0)
+    {
+        <section class="home-most-read" aria-label="Najczęściej czytane">
+            <h2 class="home-most-read__title">🔥 Najczęściej czytane</h2>
+            <ArticleCard Articles="mostRead" permissions="false" />
+        </section>
+    }
 }
 
 @code {
+    [CascadingParameter]
+    public HttpContext? HttpContext { get; set; }
+
     [SupplyParameterFromQuery(Name = "typ")]
     public string? Typ { get; set; }
 
+    [SupplyParameterFromQuery(Name = "klasa")]
+    public string? Klasa { get; set; }
+
+    [SupplyParameterFromQuery(Name = "q")]
+    public string? Q { get; set; }
+
+    [SupplyParameterFromQuery(Name = "tag")]
+    public string? Tag { get; set; }
+
+    [SupplyParameterFromQuery(Name = "limit")]
+    public int? Limit { get; set; }
+
+    // Nowości: na początku 5 najnowszych; pozostałe widoki: 20.
+    // „Załaduj więcej” dokłada kolejne 20.
+    private const int PageStep = 20;
+
+    private int InitialCount => ActiveType == ArticleType.Nowosci ? 5 : PageStep;
+
+    private int CurrentLimit => Math.Clamp(Limit ?? InitialCount, InitialCount, 1000);
+
+    // Ile artykułów było widocznych przed ostatnim kliknięciem „Załaduj więcej”.
+    private int PreviousLimit =>
+        CurrentLimit > InitialCount
+            ? Math.Max(InitialCount, CurrentLimit - PageStep)
+            : 0;
+
     private List<Article> articles = new();
+    private List<Article> pinned = new();
+    private List<Article> mostRead = new();
+    private List<string> allTags = new();
     private List<Substitute> substitutions = new();
 
     private bool substitutionsLoading;
-
-    [SupplyParameterFromQuery(Name = "klasa")]
-    public string? Klasa { get; set; }
+    private int todayCountForClass;
 
     private static readonly string[] ClassNames =
     {
@@ -183,23 +273,35 @@ else
         "5A", "5B", "5C", "5D", "1TA", "2TA", "3TA", "4TA", "5TA"
     };
 
-    // Wybrana klasa (tylko jeśli jest na liście).
-    private string? SelectedClass =>
-        ClassNames.FirstOrDefault(c =>
-            string.Equals(c, Klasa?.Trim(), StringComparison.OrdinalIgnoreCase));
-
-    private List<Substitute> FilteredSubstitutions =>
-        SelectedClass is null
-            ? substitutions
-            : substitutions
-                .Where(s => string.Equals(
-                    s.ClassName, SelectedClass, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
     private ArticleType? ActiveType { get; set; }
 
     private bool IsSubstitutionsTab =>
         string.Equals(Typ, "zastepstwa", StringComparison.OrdinalIgnoreCase);
+
+    // Klasa z adresu (?klasa=2D); gdy adres jej nie zawiera - zapamiętana w ciasteczku.
+    private string? SelectedClass
+    {
+        get
+        {
+            var raw = Klasa is not null
+                ? Klasa
+                : HttpContext?.Request.Cookies["eti-klasa"];
+
+            return ClassNames.FirstOrDefault(c =>
+                string.Equals(c, raw?.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
+    private string Query => (Q ?? string.Empty).Trim();
+
+    private string? SelectedTag =>
+        string.IsNullOrWhiteSpace(Tag) ? null : Tag.Trim();
+
+    private bool HasFilter => Query.Length > 0 || SelectedTag is not null;
+
+    // Przypięte i „najczęściej czytane” tylko na głównym widoku, bez filtrów.
+    private bool ShowFeatured =>
+        !IsSubstitutionsTab && ActiveType is null && !HasFilter;
 
     private string SectionTitle =>
         IsSubstitutionsTab
@@ -214,6 +316,175 @@ else
 
     private string EmptyMessage =>
         ActiveType?.EmptyText() ?? "Nie ma jeszcze żadnych artykułów.";
+
+    // Lista artykułów po wyszukiwaniu i filtrze tagu.
+    private List<Article> FilteredArticles
+    {
+        get
+        {
+            IEnumerable<Article> result = articles;
+
+            if (Query.Length > 0)
+            {
+                result = result.Where(a =>
+                    Contains(a.Title, Query) ||
+                    Contains(a.Author, Query) ||
+                    Contains(a.Text, Query) ||
+                    Contains(a.Tags, Query));
+            }
+
+            if (SelectedTag is not null)
+            {
+                result = result.Where(a => a.TagList().Any(t =>
+                    string.Equals(t, SelectedTag, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            return result.ToList();
+        }
+    }
+
+    // Na głównym widoku przypięte są pokazane osobno u góry.
+    private List<Article> MainList =>
+        ShowFeatured
+            ? articles.Where(a => !a.IsPinned).ToList()
+            : FilteredArticles;
+
+    private static bool Contains(string? value, string query) =>
+        value is not null &&
+        value.Contains(query, StringComparison.CurrentCultureIgnoreCase);
+
+    private string BuildUrl(
+        ArticleType? type,
+        string? tag,
+        string? query,
+        int? limit = null,
+        string anchor = "aktualnosci")
+    {
+        var parts = new List<string>();
+
+        if (type is { } t)
+            parts.Add("typ=" + t.Slug());
+
+        if (!string.IsNullOrWhiteSpace(tag))
+            parts.Add("tag=" + Uri.EscapeDataString(tag));
+
+        if (!string.IsNullOrWhiteSpace(query))
+            parts.Add("q=" + Uri.EscapeDataString(query));
+
+        if (limit is { } l)
+            parts.Add("limit=" + l);
+
+        return "/" + (parts.Count > 0 ? "?" + string.Join("&", parts) : "") + "#" + anchor;
+    }
+
+    // ----- Zastępstwa: grupy Dziś / Jutro / Nadchodzące / Minione.
+    // Daty liczone są przy każdym wejściu na stronę, więc "dziś" i "jutro"
+    // przesuwają się same z dnia na dzień.
+
+    private List<Substitute> FilteredSubstitutions =>
+        SelectedClass is null
+            ? substitutions
+            : substitutions
+                .Where(s => string.Equals(
+                    s.ClassName, SelectedClass, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+    private List<Substitute> TodayList =>
+        FilteredSubstitutions.Where(s => s.SubstituteDate.Date == DateTime.Today).ToList();
+
+    private List<Substitute> TomorrowList =>
+        FilteredSubstitutions.Where(s => s.SubstituteDate.Date == DateTime.Today.AddDays(1)).ToList();
+
+    private List<Substitute> LaterList =>
+        FilteredSubstitutions.Where(s => s.SubstituteDate.Date > DateTime.Today.AddDays(1)).ToList();
+
+    private List<Substitute> PastList =>
+        FilteredSubstitutions
+            .Where(s => s.SubstituteDate.Date < DateTime.Today)
+            .OrderByDescending(s => s.SubstituteDate)
+            .ThenBy(s => s.LessonNumber)
+            .ToList();
+
+    private RenderFragment SubGroup(
+        string title,
+        string modifier,
+        List<Substitute> list,
+        DateTime? date,
+        bool showEmpty) => @<section class="home-sub-group home-sub-group--@modifier">
+            <h3 class="home-sub-group__title">
+                @title
+                @if (date is { } d)
+                {
+                    <small>@d.ToString("dddd, d MMMM", new System.Globalization.CultureInfo("pl-PL"))</small>
+                }
+            </h3>
+
+            @if (list.Count == 0)
+            {
+                if (showEmpty)
+                {
+                    <p class="home-sub-group__empty">Brak zastępstw.</p>
+                }
+            }
+            else
+            {
+                <div class="home-substitutions__grid">
+                    @foreach (var item in list)
+                    {
+                        @SubCard(item)
+                    }
+                </div>
+            }
+        </section>;
+
+    private RenderFragment SubCard(Substitute item) => @<article class="home-substitution-card @(item.SubstituteDate.Date < DateTime.Today ? "home-substitution-card--past" : "")" @key="item.Id">
+        <div class="home-substitution-card__date">
+            <strong>@item.SubstituteDate.ToString("dd")</strong>
+            <span>
+                @item.SubstituteDate.ToString(
+                    "MMM",
+                    new System.Globalization.CultureInfo("pl-PL"))
+            </span>
+        </div>
+
+        <div class="home-substitution-card__body">
+            <div class="home-substitution-card__lesson">
+                @item.LessonNumber. lekcja ·
+                @item.StartTime.ToString(@"hh\:mm")–@item.EndTime.ToString(@"hh\:mm")
+            </div>
+
+            <h3>@(item.Teacher?.FullName ?? "Nie podano nauczyciela")</h3>
+
+            <p>
+                Zastępuje:
+                <strong>@(item.OriginalTeacher?.FullName ?? "nie podano")</strong>
+            </p>
+
+            @if (!string.IsNullOrWhiteSpace(item.ClassName))
+            {
+                <p>
+                    Klasa: <strong>@item.ClassName</strong>
+                </p>
+            }
+
+            @if (item.Room is not null)
+            {
+                <p>
+                    Sala: <strong>@item.Room.Name</strong>
+                </p>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(item.Reason))
+            {
+                <span>@item.Reason</span>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(item.Notes))
+            {
+                <p>@item.Notes</p>
+            }
+        </div>
+    </article>;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -231,24 +502,52 @@ else
             ? await articleService.GetArticlesByTypeAsync(type)
             : await articleService.GetAllArticlesAsync();
 
-        if (!IsSubstitutionsTab)
-        {
-            substitutions = new();
-            substitutionsLoading = false;
-            return;
-        }
+        pinned = articles.Where(a => a.IsPinned).ToList();
 
-        substitutionsLoading = true;
+        allTags = articles
+            .SelectMany(a => a.TagList())
+            .GroupBy(t => t, StringComparer.OrdinalIgnoreCase)
+            .OrderByDescending(g => g.Count())
+            .ThenBy(g => g.Key)
+            .Select(g => g.Key)
+            .Take(20)
+            .ToList();
+
+        mostRead = articles
+            .Where(a => a.ViewCount > 0)
+            .OrderByDescending(a => a.ViewCount)
+            .Take(3)
+            .ToList();
+
+        var today = DateTime.Today;
+        todayCountForClass = 0;
 
         try
         {
             await using var db = await DbFactory.CreateDbContextAsync();
+
+            // Odznaka na zakładce: ile zastępstw ma dziś wybrana klasa.
+            if (SelectedClass is { } cls)
+            {
+                todayCountForClass = await db.Substitutes
+                    .CountAsync(s => s.SubstituteDate == today && s.ClassName == cls);
+            }
+
+            if (!IsSubstitutionsTab)
+            {
+                substitutions = new();
+                substitutionsLoading = false;
+                return;
+            }
+
+            substitutionsLoading = true;
 
             substitutions = await db.Substitutes
                 .Include(s => s.Room)
                 .Include(s => s.Teacher)
                 .Include(s => s.OriginalTeacher)
                 .AsNoTracking()
+                .Where(s => s.SubstituteDate >= today.AddDays(-14))
                 .OrderBy(s => s.SubstituteDate)
                 .ThenBy(s => s.LessonNumber)
                 .ToListAsync();

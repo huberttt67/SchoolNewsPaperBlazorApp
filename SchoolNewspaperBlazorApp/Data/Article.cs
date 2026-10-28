@@ -1,4 +1,4 @@
-﻿﻿using System.ComponentModel.DataAnnotations;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace SchoolNewspaperBlazorApp.Data
 {
@@ -12,10 +12,20 @@ namespace SchoolNewspaperBlazorApp.Data
         public int FileId { get; set; }
         public ArticleType Type { get; set; } = ArticleType.Nowosci;
 
+        // Tagi oddzielone przecinkami, np. "sport, konkurs".
+        [MaxLength(300)]
+        public string? Tags { get; set; }
+
+        // Przypięty artykuł pokazuje się na górze strony głównej.
+        public bool IsPinned { get; set; }
+
+        // Licznik wyświetleń strony artykułu.
+        public int ViewCount { get; set; }
+
         // Soft Delete: false = aktywny, true = usunięty logicznie.
         public bool IsDeleted { get; set; }
 
     }
 
-    
+
 }

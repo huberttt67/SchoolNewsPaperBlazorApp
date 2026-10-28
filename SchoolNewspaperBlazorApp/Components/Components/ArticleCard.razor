@@ -25,6 +25,11 @@
                         @GetTextPreview(article.Text)
                     </p>
 
+                    <div class="article-card__meta">
+                        <span>⏱ @article.ReadingMinutes() min czytania</span>
+                        <span>👁 @article.ViewCount</span>
+                    </div>
+
                     <div class="article-card__footer">
                         <span class="article-card__author">@article.Author</span>
 
@@ -58,6 +63,11 @@
                     <p class="article-card__text">
                         @GetTextPreview(article.Text)
                     </p>
+
+                    <div class="article-card__meta">
+                        <span>⏱ @article.ReadingMinutes() min czytania</span>
+                        <span>👁 @article.ViewCount</span>
+                    </div>
 
                     <div class="article-card__footer">
                         <span class="article-card__author">@article.Author</span>

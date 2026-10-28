@@ -189,6 +189,8 @@ namespace SchoolNewspaperBlazorApp.Repository
                     existingArticle.Text = article.Text;
                     existingArticle.Author = article.Author;
                     existingArticle.Type = article.Type;
+                    existingArticle.Tags = article.Tags;
+                    existingArticle.IsPinned = article.IsPinned;
 
                     if (article.FileId > 0)
                     {

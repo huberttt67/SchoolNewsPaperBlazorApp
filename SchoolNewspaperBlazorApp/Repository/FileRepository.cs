@@ -7,14 +7,16 @@ namespace SchoolNewspaperBlazorApp.Repository
 {
     public class FileRepository : IFileRepository
     {
-        private readonly NewspaperDbContext _context;
+        // Fabryka daje osobny kontekst na każde zapytanie, więc wiele
+        // komponentów może jednocześnie pobierać zdjęcia bez konfliktu.
+        private readonly IDbContextFactory<NewspaperDbContext> _contextFactory;
         private readonly ILogger<FileRepository> _logger;
 
         public FileRepository(
-            NewspaperDbContext context,
+            IDbContextFactory<NewspaperDbContext> contextFactory,
             ILogger<FileRepository> logger)
         {
-            _context = context;
+            _contextFactory = contextFactory;
             _logger = logger;
         }
 
@@ -26,7 +28,9 @@ namespace SchoolNewspaperBlazorApp.Repository
                 // wyliczamy je z UWZGLĘDNIENIEM usuniętych logicznie rekordów.
                 // Bez IgnoreQueryFilters() nowy plik mógłby dostać Id
                 // istniejącego, ale usuniętego rekordu (konflikt klucza głównego).
-                var id = await _context.Files
+                await using var context = await _contextFactory.CreateDbContextAsync();
+
+                var id = await context.Files
                     .IgnoreQueryFilters()
                     .OrderByDescending(x => x.Id)
                     .Select(x => x.Id)
@@ -49,7 +53,9 @@ namespace SchoolNewspaperBlazorApp.Repository
             try
             {
                 // Filtr Soft Delete pomija usunięte pliki.
-                file = await _context.Files.FirstOrDefaultAsync(a => a.Id == id);
+                await using var context = await _contextFactory.CreateDbContextAsync();
+
+                file = await context.Files.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id);
             }
             catch (Exception ex)
             {
@@ -78,8 +84,10 @@ namespace SchoolNewspaperBlazorApp.Repository
             {
                 file.IsDeleted = false;
 
-                await _context.Files.AddAsync(file);
-                await _context.SaveChangesAsync();
+                await using var context = await _contextFactory.CreateDbContextAsync();
+
+                await context.Files.AddAsync(file);
+                await context.SaveChangesAsync();
 
                 _logger.LogInformation(
                     "Dodano plik multimedialny {FileId}.",

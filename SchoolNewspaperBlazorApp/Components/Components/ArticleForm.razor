@@ -151,6 +151,23 @@
                                placeholder="Imię i nazwisko"
                                maxlength="150" />
                     </div>
+
+                    <div class="af-field">
+                        <label class="form-label" for="articleTags">Tagi (oddzielone przecinkami)</label>
+                        <input id="articleTags"
+                               @bind="tags"
+                               @bind:event="oninput"
+                               class="form-control"
+                               placeholder="Np. sport, konkurs, klasa 3TA"
+                               maxlength="300" />
+                    </div>
+
+                    <div class="af-field">
+                        <label class="form-label" style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+                            <input type="checkbox" @bind="isPinned" />
+                            📌 Przypnij na górze strony głównej
+                        </label>
+                    </div>
                 </div>
 
                 <div class="af-cover">
@@ -370,6 +387,8 @@
     private const string inlineAlign = "left";
 
     private string author = "";
+    private string tags = "";
+    private bool isPinned;
     private ArticleType articleType = ArticleType.Nowosci;
 
     private string? previewImage;
@@ -456,6 +475,8 @@
             text = EditingArticle.Text;
             author = EditingArticle.Author;
             articleType = EditingArticle.Type;
+            tags = EditingArticle.Tags ?? "";
+            isPinned = EditingArticle.IsPinned;
 
             try
             {
@@ -476,6 +497,8 @@
             title = "";
             text = "";
             author = "";
+            tags = "";
+            isPinned = false;
             articleType = ArticleType.Nowosci;
         }
     }
@@ -737,7 +760,9 @@
                     text.Trim(),
                     author.Trim(),
                     imageId,
-                    articleType);
+                    articleType,
+                    tags,
+                    isPinned);
 
                 foreach (var galleryFile in galleryFiles)
                     await fileService.UploadGalleryImageAsync(newArticleId, galleryFile);
@@ -750,7 +775,9 @@
                     text.Trim(),
                     author.Trim(),
                     imageId,
-                    articleType);
+                    articleType,
+                    tags,
+                    isPinned);
 
                 foreach (var galleryFile in galleryFiles)
                     await fileService.UploadGalleryImageAsync(EditingArticle.Id, galleryFile);

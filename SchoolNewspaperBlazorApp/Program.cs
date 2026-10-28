@@ -110,6 +110,19 @@ namespace SchoolNewspaperBlazorApp
                         "[Name] nvarchar(50) NOT NULL, " +
                         "[IsDeleted] bit NOT NULL DEFAULT 0)");
 
+                    // Artykuły: tagi, przypinanie i licznik wyświetleń.
+                    db.Database.ExecuteSqlRaw(
+                        "IF COL_LENGTH(N'Articles', N'Tags') IS NULL " +
+                        "ALTER TABLE [Articles] ADD [Tags] nvarchar(300) NULL");
+
+                    db.Database.ExecuteSqlRaw(
+                        "IF COL_LENGTH(N'Articles', N'IsPinned') IS NULL " +
+                        "ALTER TABLE [Articles] ADD [IsPinned] bit NOT NULL DEFAULT 0");
+
+                    db.Database.ExecuteSqlRaw(
+                        "IF COL_LENGTH(N'Articles', N'ViewCount') IS NULL " +
+                        "ALTER TABLE [Articles] ADD [ViewCount] int NOT NULL DEFAULT 0");
+
                     db.Database.ExecuteSqlRaw(
                         "IF COL_LENGTH(N'Substitutes', N'RoomId') IS NULL " +
                         "ALTER TABLE [Substitutes] ADD [RoomId] int NULL");

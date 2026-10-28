@@ -19,6 +19,7 @@
     <script src="article-editor.js"></script>
     <script src="_framework/blazor.web.js"></script>
     @((MarkupString)ToastScript)
+    @((MarkupString)ProgressScript)
 </body>
 
 </html>
@@ -63,6 +64,30 @@
 
         try { localStorage.setItem(KEY, next); } catch (e) { }
     });
+})();
+</script>";
+
+    // Pasek postępu czytania na stronie artykułu.
+    private const string ProgressScript = @"<script>
+(function () {
+    function update() {
+        var bar = document.getElementById('ap-progress-bar');
+        if (!bar) { return; }
+
+        var doc = document.documentElement;
+        var max = doc.scrollHeight - doc.clientHeight;
+        var percent = max > 0 ? (window.scrollY / max) * 100 : 0;
+
+        bar.style.width = Math.min(100, Math.max(0, percent)) + '%';
+    }
+
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    document.addEventListener('DOMContentLoaded', update);
+
+    if (window.Blazor && window.Blazor.addEventListener) {
+        window.Blazor.addEventListener('enhancednavigationend', update);
+    }
 })();
 </script>";
 

@@ -4,7 +4,7 @@ namespace SchoolNewspaperBlazorApp.Interfaces.Service
 {
     public interface IArticleService
     {
-        Task<int> AddArticleAsync(string title, string text, string author, int id, ArticleType type);
+        Task<int> AddArticleAsync(string title, string text, string author, int id, ArticleType type, string? tags = null, bool isPinned = false);
 
         Task<List<Article>> GetAllArticlesAsync();
 
@@ -20,6 +20,8 @@ namespace SchoolNewspaperBlazorApp.Interfaces.Service
             string text,
             string author,
             int imageId,
-            ArticleType type);
+            ArticleType type,
+            string? tags = null,
+            bool isPinned = false);
     }
 }

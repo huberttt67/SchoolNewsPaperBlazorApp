@@ -341,8 +341,6 @@
                 </div>
 
                 <EditForm Model="roomForm" OnValidSubmit="SaveRoomAsync">
-                    <DataAnnotationsValidator />
-
                     <div class="sub-teacher-add">
                         <label class="sub-field">
                             <span>Numer / nazwa sali</span>
@@ -350,7 +348,6 @@
                                        class="sub-input"
                                        maxlength="50"
                                        placeholder="Np. 204 lub pracownia 3" />
-                            <ValidationMessage For="() => roomForm.Name" />
                         </label>
 
                         <div class="sub-form-actions">

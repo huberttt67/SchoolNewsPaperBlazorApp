@@ -3,11 +3,15 @@
 @using SchoolNewspaperBlazorApp.Data
 @using SchoolNewspaperBlazorApp.Interfaces.Service
 @using SchoolNewspaperBlazorApp.Components.Components
+@using Microsoft.EntityFrameworkCore
+@inject IDbContextFactory<NewspaperDbContext> DbFactory
 
 <PageTitle>@(article?.Title ?? "Artykuł") | Gazetka ETI</PageTitle>
 
 @if (article != null)
 {
+    <div class="ap-progress" aria-hidden="true"><span id="ap-progress-bar"></span></div>
+
     <article class="ap">
         <input type="radio" name="ap-tab" id="ap-tab-info" class="ap-radio" checked />
         <input type="radio" name="ap-tab" id="ap-tab-gallery" class="ap-radio" />
@@ -85,7 +89,19 @@
                     <div class="ap-meta">
                         <span class="ap-meta__author">@article.Author</span>
                         <span>@article.PublishDate.ToString("dd.MM.yyyy")</span>
+                        <span>⏱ @article.ReadingMinutes() min czytania</span>
+                        <span>👁 @article.ViewCount</span>
                     </div>
+
+                    @if (article.TagList().Count > 0)
+                    {
+                        <div class="ap-tags">
+                            @foreach (var tag in article.TagList())
+                            {
+                                <a class="ap-tag" href="/?tag=@Uri.EscapeDataString(tag)#aktualnosci">#@tag</a>
+                            }
+                        </div>
+                    }
 
                     <div class="ap-content">
                         <ArticleBody Text="@article.Text" />
@@ -188,6 +204,23 @@ else
 
         if (article != null)
         {
+            // Licznik wyświetleń (strona jest renderowana raz na wejście).
+            try
+            {
+                await using var db = await DbFactory.CreateDbContextAsync();
+
+                await db.Articles
+                    .Where(x => x.Id == Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(
+                        x => x.ViewCount, x => x.ViewCount + 1));
+
+                article.ViewCount++;
+            }
+            catch
+            {
+                // Błąd licznika nie może zepsuć otwarcia artykułu.
+            }
+
             try
             {
                 var fileName =

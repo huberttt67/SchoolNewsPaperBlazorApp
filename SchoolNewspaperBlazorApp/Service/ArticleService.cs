@@ -1,4 +1,4 @@
-﻿﻿using SchoolNewspaperBlazorApp.Data;
+﻿using SchoolNewspaperBlazorApp.Data;
 using SchoolNewspaperBlazorApp.Interfaces.Repository;
 using SchoolNewspaperBlazorApp.Interfaces.Service;
 
@@ -25,7 +25,9 @@ namespace SchoolNewspaperBlazorApp.Service
             string text,
             string author,
             int fileId,
-            ArticleType type)
+            ArticleType type,
+            string? tags = null,
+            bool isPinned = false)
         {
             await _permissionService.RequirePermissionAsync(
                 EnumPermission.CreateArticles);
@@ -37,7 +39,9 @@ namespace SchoolNewspaperBlazorApp.Service
                 Author = author,
                 PublishDate = DateTime.Now,
                 FileId = fileId,
-                Type = type
+                Type = type,
+                Tags = ArticleExtensions.NormalizeTags(tags),
+                IsPinned = isPinned
             };
 
             var articleId = await _articleRepository.AddArticleAsync(article);
@@ -99,7 +103,9 @@ namespace SchoolNewspaperBlazorApp.Service
             string text,
             string author,
             int imageId,
-            ArticleType type)
+            ArticleType type,
+            string? tags = null,
+            bool isPinned = false)
         {
             await _permissionService.RequirePermissionAsync(
                 EnumPermission.EditArticles);
@@ -132,6 +138,8 @@ namespace SchoolNewspaperBlazorApp.Service
             article.Text = text;
             article.Author = author;
             article.Type = type;
+            article.Tags = ArticleExtensions.NormalizeTags(tags);
+            article.IsPinned = isPinned;
 
             // Zmień zdjęcie tylko wtedy, gdy przekazano nowe ID.
             if (imageId > 0)
