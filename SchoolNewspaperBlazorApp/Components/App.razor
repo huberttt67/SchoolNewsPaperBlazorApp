@@ -5,6 +5,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @((MarkupString)ThemeScript)
     <base href="/" />
     <link rel="stylesheet" href="bootstrap/bootstrap.min.css" />
     <link rel="stylesheet" href="app.css" />
@@ -23,6 +24,50 @@
 </html>
 
 @code {
+    // Motyw jasny/ciemny: ustawiany jeszcze przed narysowaniem strony (bez
+    // „mignięcia”), zapamiętywany w przeglądarce, domyślnie zgodny z systemem.
+    private const string ThemeScript = @"<script>
+(function () {
+    var KEY = 'eti-theme';
+    var root = document.documentElement;
+    var current = null;
+
+    try { current = localStorage.getItem(KEY); } catch (e) { }
+
+    if (current !== 'dark' && current !== 'light') {
+        current = (window.matchMedia &&
+                   window.matchMedia('(prefers-color-scheme: dark)').matches)
+            ? 'dark' : 'light';
+    }
+
+    function apply(theme) {
+        current = theme;
+        root.setAttribute('data-theme', theme);
+    }
+
+    apply(current);
+
+    // Blazor przy nawigacji potrafi odtworzyć atrybuty – pilnujemy motywu.
+    new MutationObserver(function () {
+        if (root.getAttribute('data-theme') !== current) {
+            root.setAttribute('data-theme', current);
+        }
+    }).observe(root, { attributes: true, attributeFilter: ['data-theme'] });
+
+    document.addEventListener('click', function (event) {
+        var button = event.target && event.target.closest
+            ? event.target.closest('[data-theme-toggle]') : null;
+
+        if (!button) { return; }
+
+        var next = current === 'dark' ? 'light' : 'dark';
+        apply(next);
+
+        try { localStorage.setItem(KEY, next); } catch (e) { }
+    });
+})();
+</script>";
+
     private const string ToastScript = @"<script>
 (function () {
     if (window.__toastInit) { return; }

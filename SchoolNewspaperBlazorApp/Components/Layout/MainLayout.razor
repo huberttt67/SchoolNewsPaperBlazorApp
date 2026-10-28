@@ -53,6 +53,15 @@
             </nav>
 
             <div class="site-header__actions">
+                <button type="button"
+                        class="theme-toggle"
+                        data-theme-toggle
+                        aria-label="Przełącz motyw jasny / ciemny"
+                        title="Przełącz motyw jasny / ciemny">
+                    <span class="theme-toggle__moon" aria-hidden="true">☾</span>
+                    <span class="theme-toggle__sun" aria-hidden="true">☀</span>
+                </button>
+
                 <AuthorizeView>
                     <NotAuthorized>
                         <NavLink class="header-login" href="/login">

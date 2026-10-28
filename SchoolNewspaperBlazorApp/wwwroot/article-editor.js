@@ -92,6 +92,83 @@
 
         return element.value;
     };
+
+    // Zmienia ułożenie (left / center / right) zdjęcia, przy którym stoi
+    // kursor albo które jest zaznaczone w polu tekstowym. Kursor może stać
+    // w znaczniku [[IMG:...]] albo tuż za nim (np. zaraz po wstawieniu).
+    // Zwraca nowy tekst albo null, gdy przy kursorze nie ma zdjęcia.
+    window.articleEditor.setAlignAtCursor = function (elementId, align) {
+        var element = document.getElementById(elementId);
+
+        if (!element || typeof element.value !== 'string' ||
+            !/^(left|center|right)$/.test(align)) {
+            return null;
+        }
+
+        var current = element.value || '';
+        var selection = selections[elementId];
+
+        var start = selection ? selection.start :
+            (typeof element.selectionStart === 'number'
+                ? element.selectionStart : current.length);
+        var end = selection ? selection.end :
+            (typeof element.selectionEnd === 'number'
+                ? element.selectionEnd : start);
+
+        var pattern = /\[\[IMG:([A-Za-z0-9._-]+)(?:\|(?:left|right|center))?\]\]/gi;
+        var match;
+        var target = null;
+
+        while ((match = pattern.exec(current)) !== null) {
+            var markerStart = match.index;
+            var markerEnd = match.index + match[0].length;
+
+            // Kursor (lub zaznaczenie) dotyka znacznika.
+            var touches = start <= markerEnd && end >= markerStart;
+
+            // Kursor stoi w pustych liniach tuż za znacznikiem.
+            var gap = current.slice(markerEnd, start);
+            var justAfter = start > markerEnd && gap.trim() === '';
+
+            if (touches || justAfter) {
+                target = {
+                    start: markerStart,
+                    end: markerEnd,
+                    file: match[1]
+                };
+
+                // Dotknięty znacznik wygrywa z „tuż za”.
+                if (touches) {
+                    break;
+                }
+            }
+        }
+
+        if (!target) {
+            return null;
+        }
+
+        var replacement = '[[IMG:' + target.file + '|' + align + ']]';
+
+        element.value =
+            current.slice(0, target.start) +
+            replacement +
+            current.slice(target.end);
+
+        var caret = target.start + replacement.length;
+
+        if (typeof element.setSelectionRange === 'function') {
+            element.setSelectionRange(caret, caret);
+        }
+
+        rememberSelection(element);
+
+        element.dispatchEvent(new Event('input', {
+            bubbles: true
+        }));
+
+        return element.value;
+    };
 })();
 
 // Płynne przewinięcie strony do elementu (np. do formularza edycji).

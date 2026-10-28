@@ -127,21 +127,6 @@
                             <small>Ustaw kursor w wybranym miejscu. Maksymalny rozmiar zdjęcia: 5 MB.</small>
                         </div>
 
-                        <div class="af-inline-align" role="group" aria-label="Ułożenie zdjęcia w tekście">
-                            <span>Ułożenie wstawianego zdjęcia:</span>
-
-                            @foreach (var option in alignOptions)
-                            {
-                                var value = option.Value;
-
-                                <button type="button"
-                                        class="@($"af-align-btn {(inlineAlign == value ? "is-active" : "")}".Trim())"
-                                        @onclick="() => inlineAlign = value">
-                                    @option.Label
-                                </button>
-                            }
-                        </div>
-
                         <textarea id="articleText"
                                   @bind="text"
                                   @bind:event="oninput"
@@ -150,10 +135,11 @@
                                   placeholder="Napisz artykuł… Ustaw kursor w wybranym miejscu, aby wstawić zdjęcie."></textarea>
 
                         <small class="af-note">
-                            Zdjęcie „do lewej” lub „do prawej” jest opływane tekstem. Znacznik
-                            zdjęcia (np. [[IMG:plik.jpg|left]]) możesz przenieść w inne miejsce
-                            tekstu albo zmienić jego ułożenie na left, right lub center.
+                            Zdjęcie „do lewej” lub „do prawej” jest opływane tekstem. Ułożenie
+                            zdjęć, które już są w tekście, zmienisz przyciskami poniżej.
                         </small>
+
+                        <InlineImageAligner @bind-Text="text" />
                     </div>
 
                     <div class="af-field">
@@ -206,6 +192,8 @@
                 <h2>@(string.IsNullOrWhiteSpace(title) ? "Tytuł artykułu" : title)</h2>
                 <p>Tak będzie wyglądać artykuł po otwarciu na stronie.</p>
             </header>
+
+            <InlineImageAligner @bind-Text="text" />
 
             <article class="af-preview-article">
                 @if (CoverSrc is not null)
@@ -377,15 +365,10 @@
     private string title = "";
     private string text = "";
 
-    // Ułożenie zdjęcia wstawianego w treść: left / center / right.
-    private string inlineAlign = "left";
+    // Nowe zdjęcie w treści jest wstawiane „do lewej”.
+    // Ułożenie każdego zdjęcia zmienia się w liście pod polem tekstu.
+    private const string inlineAlign = "left";
 
-    private static readonly (string Value, string Label)[] alignOptions =
-    {
-        ("left", "◧ Do lewej"),
-        ("center", "▣ Na środku"),
-        ("right", "Do prawej ◨")
-    };
     private string author = "";
     private ArticleType articleType = ArticleType.Nowosci;
 

@@ -1,0 +1,96 @@
+﻿@using System.Text.RegularExpressions
+
+@* Lista zdjęć wstawionych w treść artykułu. Każde zdjęcie ma własne przyciski
+   ułożenia (do lewej / na środku / do prawej). Zmiana modyfikuje znacznik
+   [[IMG:plik|ułożenie]] w tekście, więc od razu widać ją w podglądzie. *@
+
+@if (items.Count > 0)
+{
+    <div class="af-imglist">
+        <div class="af-imglist__title">Zdjęcia w treści – ułożenie każdego zdjęcia</div>
+
+        @foreach (var item in items)
+        {
+            var order = item.Order;
+
+            <div class="af-imglist__row">
+                <img class="af-imglist__thumb" src="@ImageUrl(item.File)" alt="" />
+                <span class="af-imglist__name">Zdjęcie @(order + 1)</span>
+
+                <div class="af-imglist__btns" role="group" aria-label="@($"Ułożenie zdjęcia {order + 1}")">
+                    @foreach (var option in Options)
+                    {
+                        var value = option.Value;
+
+                        <button type="button"
+                                class="@($"af-align-btn {(item.Align == value ? "is-active" : "")}".Trim())"
+                                @onclick="() => SetAlignAsync(order, value)">
+                            @option.Label
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public EventCallback<string?> TextChanged { get; set; }
+
+    private static readonly Regex Marker = new(
+        @"\[\[IMG:([A-Za-z0-9._-]+)(?:\|(left|right|center))?\]\]",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant | RegexOptions.IgnoreCase);
+
+    private static readonly (string Value, string Label)[] Options =
+    {
+        ("left", "◧ Do lewej"),
+        ("center", "▣ Na środku"),
+        ("right", "Do prawej ◨")
+    };
+
+    private List<Item> items = new();
+
+    protected override void OnParametersSet()
+    {
+        items = new List<Item>();
+
+        if (string.IsNullOrEmpty(Text))
+        {
+            return;
+        }
+
+        var order = 0;
+
+        foreach (Match match in Marker.Matches(Text))
+        {
+            var align = match.Groups[2].Success
+                ? match.Groups[2].Value.ToLowerInvariant()
+                : "center";
+
+            items.Add(new Item(order++, match.Groups[1].Value, align));
+        }
+    }
+
+    private static string ImageUrl(string file) =>
+        $"/Images/{Uri.EscapeDataString(file)}";
+
+    private async Task SetAlignAsync(int order, string align)
+    {
+        if (string.IsNullOrEmpty(Text))
+        {
+            return;
+        }
+
+        var current = 0;
+
+        var updated = Marker.Replace(Text, match =>
+            current++ == order
+                ? $"[[IMG:{match.Groups[1].Value}|{align}]]"
+                : match.Value);
+
+        await TextChanged.InvokeAsync(updated);
+    }
+
+    private sealed record Item(int Order, string File, string Align);
+}
