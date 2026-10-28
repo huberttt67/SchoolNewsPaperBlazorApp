@@ -82,6 +82,9 @@ namespace SchoolNewspaperBlazorApp
             builder.Services.AddScoped<
                 IPermissionService, PermissionService>();
 
+            // Blokada po 5 błędnych próbach logowania.
+            builder.Services.AddSingleton<LoginAttemptTracker>();
+
             // Moduł zastępstw.
             builder.Services.AddScoped<ITeacherRepository, TeacherRepository>();
             builder.Services.AddScoped<ISubstituteRepository, SubstituteRepository>();
@@ -89,6 +92,40 @@ namespace SchoolNewspaperBlazorApp
             builder.Services.AddScoped<ISubstituteService, SubstituteService>();
 
             var app = builder.Build();
+
+            // Sale: tworzy tabelę Rooms i kolumnę Substitutes.RoomId, jeśli ich
+            // jeszcze nie ma (bezpieczne przy każdym starcie, nie rusza danych).
+            using (var scope = app.Services.CreateScope())
+            {
+                try
+                {
+                    var factory = scope.ServiceProvider
+                        .GetRequiredService<IDbContextFactory<NewspaperDbContext>>();
+                    using var db = factory.CreateDbContext();
+
+                    db.Database.ExecuteSqlRaw(
+                        "IF OBJECT_ID(N'[Rooms]', N'U') IS NULL " +
+                        "CREATE TABLE [Rooms] (" +
+                        "[Id] int IDENTITY(1,1) NOT NULL PRIMARY KEY, " +
+                        "[Name] nvarchar(50) NOT NULL, " +
+                        "[IsDeleted] bit NOT NULL DEFAULT 0)");
+
+                    db.Database.ExecuteSqlRaw(
+                        "IF COL_LENGTH(N'Substitutes', N'RoomId') IS NULL " +
+                        "ALTER TABLE [Substitutes] ADD [RoomId] int NULL");
+
+                    db.Database.ExecuteSqlRaw(
+                        "IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys " +
+                        "WHERE name = N'FK_Substitutes_Rooms_RoomId') " +
+                        "ALTER TABLE [Substitutes] ADD CONSTRAINT " +
+                        "[FK_Substitutes_Rooms_RoomId] FOREIGN KEY ([RoomId]) " +
+                        "REFERENCES [Rooms] ([Id])");
+                }
+                catch (Exception ex)
+                {
+                    app.Logger.LogError(ex, "Nie udało się przygotować tabeli sal.");
+                }
+            }
 
             if (!app.Environment.IsDevelopment())
             {
@@ -145,19 +182,37 @@ namespace SchoolNewspaperBlazorApp
                 HttpContext context,
                 IAuthService authService,
                 IAuthRepository authRepository,
-                IPermissionRepository permissionRepository) =>
+                IPermissionRepository permissionRepository,
+                LoginAttemptTracker attempts) =>
             {
                 var form = await context.Request.ReadFormAsync();
 
                 var email = form["Email"].ToString().Trim();
                 var password = form["Password"].ToString();
+                var ip = context.Connection.RemoteIpAddress?.ToString();
+
+                var locked = attempts.GetLockRemaining(email, ip);
+
+                if (locked is { } remaining)
+                {
+                    var minutes = (int)Math.Ceiling(remaining.TotalMinutes);
+                    return Results.Redirect($"/login?toast=locked&min={minutes}");
+                }
 
                 var valid = await authService.LoginAsync(email, password);
 
                 if (!valid)
                 {
+                    if (attempts.RegisterFailure(email, ip))
+                    {
+                        var min = (int)LoginAttemptTracker.LockDuration.TotalMinutes;
+                        return Results.Redirect($"/login?toast=locked&min={min}");
+                    }
+
                     return Results.Redirect("/login?error=invalid");
                 }
+
+                attempts.Reset(email, ip);
 
                 var user =
                     await authRepository.GetByEmailAsync(email);

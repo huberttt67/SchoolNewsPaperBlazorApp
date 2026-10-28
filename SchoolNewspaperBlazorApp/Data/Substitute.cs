@@ -26,6 +26,10 @@ namespace SchoolNewspaperBlazorApp.Data
         public int? OriginalTeacherId { get; set; }
         public Teacher? OriginalTeacher { get; set; }
 
+        // Sala, w której odbywa się zastępstwo (opcjonalnie).
+        public int? RoomId { get; set; }
+        public Room? Room { get; set; }
+
         // Klasa, której dotyczy zastępstwo, np. 3A.
         [Required]
         [MaxLength(20)]

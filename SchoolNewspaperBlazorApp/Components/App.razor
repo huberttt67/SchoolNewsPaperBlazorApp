@@ -25,7 +25,7 @@
 
 @code {
     // Motyw jasny/ciemny: ustawiany jeszcze przed narysowaniem strony (bez
-    // „mignięcia”), zapamiętywany w przeglądarce, domyślnie zgodny z systemem.
+    // „mignięcia”), zapamiętywany w przeglądarce, domyślnie jasny.
     private const string ThemeScript = @"<script>
 (function () {
     var KEY = 'eti-theme';
@@ -35,9 +35,7 @@
     try { current = localStorage.getItem(KEY); } catch (e) { }
 
     if (current !== 'dark' && current !== 'light') {
-        current = (window.matchMedia &&
-                   window.matchMedia('(prefers-color-scheme: dark)').matches)
-            ? 'dark' : 'light';
+        current = 'light';
     }
 
     function apply(theme) {
@@ -186,7 +184,14 @@
 
         if (!key && !hasError) { return; }
 
-        if (hasError) {
+        if (key === 'locked') {
+            var min = parseInt(params.get('min'), 10) || 5;
+            window.showToast(
+                'Zbyt wiele błędnych prób logowania. Spróbuj ponownie za ' + min + ' min.',
+                'error',
+                7000
+            );
+        } else if (hasError) {
             window.showToast(
                 'Niepoprawny email lub hasło.',
                 'error'
@@ -200,6 +205,7 @@
 
         params.delete('toast');
         params.delete('error');
+        params.delete('min');
 
         var qs = params.toString();
         var url = window.location.pathname +

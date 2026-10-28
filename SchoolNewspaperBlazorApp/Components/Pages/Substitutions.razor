@@ -111,7 +111,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                                                                                        : $" · {teacher.Subject}")
+                                                                                                                                                                                            : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -138,7 +138,7 @@
                                     <option value="@teacher.Id">
 @teacher.FullName@(string.IsNullOrWhiteSpace(teacher.Subject)
                                             ? " · brak przedmiotu"
-                                                                                                                                                        : $" · {teacher.Subject}")
+                                                                                                                                                                                            : $" · {teacher.Subject}")
                                     </option>
                                 }
                             </select>
@@ -152,6 +152,19 @@
                                         : originalTeacher.Subject)
                                 </small>
                             }
+                        </label>
+
+                        <label class="sub-field sub-field--wide">
+                            <span>Sala (opcjonalnie)</span>
+                            <select class="sub-input"
+                                    value="@(form.RoomId?.ToString() ?? "")"
+                                    @onchange="OnRoomChanged">
+                                <option value="">Bez sali</option>
+                                @foreach (var room in rooms)
+                                {
+                                    <option value="@room.Id">@room.Name</option>
+                                }
+                            </select>
                         </label>
 
                         <label class="sub-field">
@@ -317,6 +330,93 @@
                         }
                     }
                 </div>
+
+                <div class="sub-panel__heading" id="room-form" style="margin-top: 28px;">
+                    <div class="sub-heading-icon">▣</div>
+                    <div>
+                        <span class="sub-kicker">LISTA SAL</span>
+                        <h2>Sale</h2>
+                        <p>Dodawaj i edytuj sale, które wybierzesz przy zastępstwie.</p>
+                    </div>
+                </div>
+
+                <EditForm Model="roomForm" OnValidSubmit="SaveRoomAsync">
+                    <DataAnnotationsValidator />
+
+                    <div class="sub-teacher-add">
+                        <label class="sub-field">
+                            <span>Numer / nazwa sali</span>
+                            <InputText @bind-Value="roomForm.Name"
+                                       class="sub-input"
+                                       maxlength="50"
+                                       placeholder="Np. 204 lub pracownia 3" />
+                            <ValidationMessage For="() => roomForm.Name" />
+                        </label>
+
+                        <div class="sub-form-actions">
+                            @if (editingRoomId.HasValue)
+                            {
+                                <button type="button"
+                                        class="sub-button sub-button--secondary"
+                                        @onclick="CancelRoomEdit">
+                                    Anuluj
+                                </button>
+                            }
+
+                            <button type="submit"
+                                    class="sub-button sub-button--secondary"
+                                    disabled="@isSavingRoom">
+                                @(isSavingRoom
+                                    ? "Zapisuję…"
+                                    : editingRoomId.HasValue
+                                        ? "Zapisz salę"
+                                        : "＋ Dodaj salę")
+                            </button>
+                        </div>
+                    </div>
+                </EditForm>
+
+                <div class="sub-teacher-list">
+                    @if (rooms.Count == 0)
+                    {
+                        <div class="sub-mini-empty">
+                            Nie ma jeszcze sal. Dodaj pierwszą powyżej.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var room in rooms)
+                        {
+                            <div class="sub-teacher-row" @key="room.Id">
+                                <div class="sub-avatar">▣</div>
+
+                                <div class="sub-teacher-info">
+                                    <strong>Sala @room.Name</strong>
+                                </div>
+
+                                @if (canEdit)
+                                {
+                                    <button type="button"
+                                            class="sub-icon-button"
+                                            title="Edytuj salę"
+                                            @onclick="() => EditRoom(room)">
+                                        ✎
+                                    </button>
+                                }
+
+                                @if (canDelete)
+                                {
+                                    <button type="button"
+                                            class="sub-icon-button"
+                                            title="Usuń salę"
+                                            @onclick="() => RemoveRoomAsync(room)">
+                                        ×
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
+                </div>
             </aside>
         </div>
     }
@@ -366,6 +466,7 @@
                             <th>Data</th>
                             <th>Klasa</th>
                             <th>Lekcja</th>
+                            <th>Sala</th>
                             <th>Godziny</th>
                             <th>Nauczyciel zastępujący</th>
                             <th>Nauczyciel zastępowany</th>
@@ -391,6 +492,8 @@
                                 <td>
                                     <span class="sub-lesson-badge">@item.LessonNumber</span>
                                 </td>
+
+                                <td>@(item.Room?.Name ?? "—")</td>
 
                                 <td>
                                     <strong>@item.StartTime.ToString(@"hh\:mm")</strong>
@@ -464,6 +567,10 @@
     private bool isLoading = true;
     private bool isSaving;
     private bool isSavingTeacher;
+    private bool isSavingRoom;
+    private int? editingRoomId;
+    private RoomForm roomForm = new();
+    private List<Room> rooms = new();
 
     private string? errorMessage;
     private string? successMessage;
@@ -599,9 +706,16 @@
             .OrderBy(t => t.FullName)
             .ToListAsync();
 
+        rooms = await db.Rooms
+            .AsNoTracking()
+            .Where(r => !r.IsDeleted)
+            .OrderBy(r => r.Name)
+            .ToListAsync();
+
         substitutions = await db.Substitutes
             .AsNoTracking()
             .Where(s => !s.IsDeleted)
+            .Include(s => s.Room)
             .Include(s => s.Teacher)
             .Include(s => s.OriginalTeacher)
             .OrderBy(s => s.SubstituteDate)
@@ -624,6 +738,13 @@
     private void OnOriginalTeacherChanged(ChangeEventArgs args)
     {
         form.OriginalTeacherId = int.TryParse(args.Value?.ToString(), out var id)
+            ? id
+            : null;
+    }
+
+    private void OnRoomChanged(ChangeEventArgs args)
+    {
+        form.RoomId = int.TryParse(args.Value?.ToString(), out var id)
             ? id
             : null;
     }
@@ -660,6 +781,7 @@
             LessonNumber = item.LessonNumber,
             TeacherId = item.TeacherId,
             OriginalTeacherId = item.OriginalTeacherId,
+            RoomId = item.RoomId,
             Notes = item.Notes
         };
 
@@ -729,6 +851,13 @@
         if (form.TeacherId == form.OriginalTeacherId.Value)
         {
             errorMessage = "Wybierz dwóch różnych nauczycieli.";
+            return;
+        }
+
+        if (form.RoomId is not null &&
+            rooms.All(r => r.Id != form.RoomId.Value))
+        {
+            errorMessage = "Wybrana sala nie istnieje na liście.";
             return;
         }
 
@@ -814,6 +943,7 @@
             item.EndTime = end;
             item.TeacherId = form.TeacherId;
             item.OriginalTeacherId = form.OriginalTeacherId.Value;
+            item.RoomId = form.RoomId;
             item.Notes = string.IsNullOrWhiteSpace(form.Notes)
                 ? null
                 : form.Notes.Trim();
@@ -1023,6 +1153,174 @@
         }
     }
 
+    private void EditRoom(Room room)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        editingRoomId = room.Id;
+        roomForm = new RoomForm { Name = room.Name };
+
+        scrollTargetId = "room-form";
+    }
+
+    private void CancelRoomEdit()
+    {
+        editingRoomId = null;
+        roomForm = new RoomForm();
+
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task SaveRoomAsync()
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        await RefreshPermissionsAsync();
+
+        if (editingRoomId.HasValue ? !canEdit : !canCreate)
+        {
+            errorMessage = editingRoomId.HasValue
+                ? "Nie masz uprawnień do edytowania sal."
+                : "Nie masz uprawnień do dodawania sal.";
+            return;
+        }
+
+        var name = (roomForm.Name ?? string.Empty).Trim();
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            errorMessage = "Podaj numer lub nazwę sali.";
+            return;
+        }
+
+        isSavingRoom = true;
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var duplicate = await db.Rooms.AnyAsync(r =>
+                r.Name.ToLower() == name.ToLower() &&
+                !r.IsDeleted &&
+                (!editingRoomId.HasValue || r.Id != editingRoomId.Value));
+
+            if (duplicate)
+            {
+                errorMessage = "Taka sala już znajduje się na liście.";
+                return;
+            }
+
+            if (editingRoomId.HasValue)
+            {
+                var room = await db.Rooms.FirstOrDefaultAsync(
+                    r => r.Id == editingRoomId.Value && !r.IsDeleted);
+
+                if (room is null)
+                {
+                    errorMessage = "Nie znaleziono sali.";
+                    return;
+                }
+
+                room.Name = name;
+                successMessage = "Zapisano zmiany sali.";
+            }
+            else
+            {
+                db.Rooms.Add(new Room { Name = name });
+                successMessage = "Dodano salę.";
+            }
+
+            await db.SaveChangesAsync();
+            await LoadDataAsync();
+
+            editingRoomId = null;
+            roomForm = new RoomForm();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się zapisać sali.");
+            errorMessage = "Nie udało się zapisać sali.";
+        }
+        finally
+        {
+            isSavingRoom = false;
+        }
+    }
+
+    private async Task RemoveRoomAsync(Room room)
+    {
+        errorMessage = null;
+        successMessage = null;
+
+        await RefreshPermissionsAsync();
+
+        if (!canDelete)
+        {
+            errorMessage = "Nie masz uprawnień do usuwania sal.";
+            return;
+        }
+
+        bool confirmed;
+
+        try
+        {
+            confirmed = await JS.InvokeAsync<bool>(
+                "confirm",
+                $"Usunąć salę „{room.Name}” z listy?");
+        }
+        catch
+        {
+            errorMessage = "Nie udało się wyświetlić potwierdzenia.";
+            return;
+        }
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            await using var db = await DbFactory.CreateDbContextAsync();
+
+            var tracked = await db.Rooms.FirstOrDefaultAsync(
+                r => r.Id == room.Id && !r.IsDeleted);
+
+            if (tracked is null)
+            {
+                errorMessage = "Nie znaleziono sali.";
+                return;
+            }
+
+            // Usunięcie logiczne — rekord pozostaje w bazie.
+            tracked.IsDeleted = true;
+
+            await db.SaveChangesAsync();
+
+            if (editingRoomId == room.Id)
+            {
+                CancelRoomEdit();
+            }
+
+            if (form.RoomId == room.Id)
+            {
+                form.RoomId = null;
+            }
+
+            await LoadDataAsync();
+
+            successMessage = "Sala została usunięta z listy.";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Nie udało się usunąć sali.");
+            errorMessage = "Nie udało się usunąć sali.";
+        }
+    }
+
     private async Task RemoveSubstituteAsync(Substitute item)
     {
         errorMessage = null;
@@ -1119,8 +1417,17 @@
 
         public int? OriginalTeacherId { get; set; }
 
+        public int? RoomId { get; set; }
+
         [System.ComponentModel.DataAnnotations.MaxLength(500)]
         public string? Notes { get; set; }
+    }
+
+    private sealed class RoomForm
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Podaj numer lub nazwę sali.")]
+        [System.ComponentModel.DataAnnotations.MaxLength(50)]
+        public string Name { get; set; } = string.Empty;
     }
 
     private sealed class TeacherForm

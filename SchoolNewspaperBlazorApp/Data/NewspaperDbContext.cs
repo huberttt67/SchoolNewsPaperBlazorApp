@@ -24,6 +24,8 @@ namespace SchoolNewspaperBlazorApp.Data
 
         public DbSet<Substitute> Substitutes => Set<Substitute>();
 
+        public DbSet<Room> Rooms => Set<Room>();
+
         protected override void OnModelCreating(ModelBuilder mb)
         {
             base.OnModelCreating(mb);
@@ -70,6 +72,9 @@ namespace SchoolNewspaperBlazorApp.Data
             mb.Entity<Substitute>()
                 .HasQueryFilter(s => !s.IsDeleted);
 
+            mb.Entity<Room>()
+                .HasQueryFilter(r => !r.IsDeleted);
+
             mb.Entity<MediaFile>()
                 .HasQueryFilter(f => !f.IsDeleted);
 
@@ -88,6 +93,13 @@ namespace SchoolNewspaperBlazorApp.Data
                 .HasOne(s => s.OriginalTeacher)
                 .WithMany()
                 .HasForeignKey(s => s.OriginalTeacherId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Sala, w której odbywa się zastępstwo.
+            mb.Entity<Substitute>()
+                .HasOne(s => s.Room)
+                .WithMany()
+                .HasForeignKey(s => s.RoomId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Uprawnienia usuniętego logicznie konta są niewidoczne.

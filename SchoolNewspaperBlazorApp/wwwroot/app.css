@@ -2799,7 +2799,9 @@ textarea.form-control {
 }
 
 :where(html[data-theme="dark"]) .eti-toast {
-    background: var(--eti-#11161d);
+    background: var(--eti-surface);
+    color: var(--eti-text);
+    border-color: var(--eti-border);
 }
 
 .eti-toast--hide {
@@ -10697,3 +10699,68 @@ html[data-theme="dark"] .ap-cover img {
 .site-header__actions {
     gap: 10px;
 }
+
+
+/* =========================================================
+   Zastępstwa na stronie głównej — wybór klasy
+   ========================================================= */
+
+.home-class-filter {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 0 0 20px;
+}
+
+    .home-class-filter label {
+        font-weight: 700;
+        color: var(--eti-text);
+    }
+
+.home-class-filter__select {
+    min-height: 42px;
+    min-width: 160px;
+    padding: 8px 12px;
+    border: 1px solid var(--eti-border);
+    border-radius: 10px;
+    background: var(--eti-surface);
+    color: var(--eti-text);
+    font: inherit;
+    font-weight: 600;
+}
+
+.home-class-filter__button {
+    min-height: 42px;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--eti-blue);
+    color: #fff;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+/* =========================================================
+   Zdjęcie główne artykułu — ramka dopasowuje się do zdjęcia
+   (bez rozciągania małych zdjęć i bez pustych pasów po bokach)
+   ========================================================= */
+
+.ap-cover {
+    display: flex;
+    justify-content: center;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 30px;
+    background: transparent;
+}
+
+    .ap-cover img {
+        display: block;
+        width: auto;
+        max-width: 100%;
+        height: auto;
+        max-height: min(65vh, 640px);
+        object-fit: contain;
+    }

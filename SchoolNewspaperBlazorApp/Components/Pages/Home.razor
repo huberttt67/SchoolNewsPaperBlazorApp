@@ -60,24 +60,44 @@
 
 @if (IsSubstitutionsTab)
 {
+    <form method="get" action="/" class="home-class-filter">
+        <input type="hidden" name="typ" value="zastepstwa" />
+        <label for="klasa">Twoja klasa:</label>
+        <select id="klasa"
+                name="klasa"
+                class="home-class-filter__select"
+                onchange="this.form.submit()">
+            <option value="">Wszystkie klasy</option>
+            @foreach (var className in ClassNames)
+            {
+                <option value="@className" selected="@(string.Equals(className, SelectedClass, StringComparison.OrdinalIgnoreCase))">@className</option>
+            }
+        </select>
+        <noscript><button type="submit" class="home-class-filter__button">Pokaż</button></noscript>
+    </form>
+
     @if (substitutionsLoading)
     {
         <div class="type-empty">
             <p>Wczytywanie planu zastępstw…</p>
         </div>
     }
-    else if (substitutions.Count == 0)
+    else if (FilteredSubstitutions.Count == 0)
     {
         <div class="type-empty">
             <span aria-hidden="true">▤</span>
             <h3>Brak zaplanowanych zastępstw</h3>
-            <p>Gdy administracja doda zastępstwa, pojawią się tutaj.</p>
+            <p>
+                @(string.IsNullOrEmpty(SelectedClass)
+                    ? "Gdy administracja doda zastępstwa, pojawią się tutaj."
+                    : $"Brak zastępstw dla klasy {SelectedClass}.")
+            </p>
         </div>
     }
     else
     {
         <div class="home-substitutions__grid">
-            @foreach (var item in substitutions)
+            @foreach (var item in FilteredSubstitutions)
             {
                 <article class="home-substitution-card" @key="item.Id">
                     <div class="home-substitution-card__date">
@@ -106,6 +126,13 @@
                         {
                             <p>
                                 Klasa: <strong>@item.ClassName</strong>
+                            </p>
+                        }
+
+                        @if (item.Room is not null)
+                        {
+                            <p>
+                                Sala: <strong>@item.Room.Name</strong>
                             </p>
                         }
 
@@ -145,6 +172,29 @@ else
     private List<Substitute> substitutions = new();
 
     private bool substitutionsLoading;
+
+    [SupplyParameterFromQuery(Name = "klasa")]
+    public string? Klasa { get; set; }
+
+    private static readonly string[] ClassNames =
+    {
+        "1A", "1B", "1C", "1D", "2A", "2B", "2C", "2D",
+        "3A", "3B", "3C", "3D", "4A", "4B", "4C", "4D",
+        "5A", "5B", "5C", "5D", "1TA", "2TA", "3TA", "4TA", "5TA"
+    };
+
+    // Wybrana klasa (tylko jeśli jest na liście).
+    private string? SelectedClass =>
+        ClassNames.FirstOrDefault(c =>
+            string.Equals(c, Klasa?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private List<Substitute> FilteredSubstitutions =>
+        SelectedClass is null
+            ? substitutions
+            : substitutions
+                .Where(s => string.Equals(
+                    s.ClassName, SelectedClass, StringComparison.OrdinalIgnoreCase))
+                .ToList();
 
     private ArticleType? ActiveType { get; set; }
 
@@ -195,6 +245,7 @@ else
             await using var db = await DbFactory.CreateDbContextAsync();
 
             substitutions = await db.Substitutes
+                .Include(s => s.Room)
                 .Include(s => s.Teacher)
                 .Include(s => s.OriginalTeacher)
                 .AsNoTracking()
