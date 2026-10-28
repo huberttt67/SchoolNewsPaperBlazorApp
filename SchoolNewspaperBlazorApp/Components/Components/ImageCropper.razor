@@ -1,0 +1,256 @@
+﻿@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.JSInterop
+@using SchoolNewspaperBlazorApp.Data
+@using SchoolNewspaperBlazorApp.Interfaces.Service
+
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject IFileService fileService
+
+@* Okno kadrowania zdjęcia. Suwaki, przeciąganie i rysowanie obsługuje
+   wwwroot/image-cropper.js (płynnie, bez zapytań do serwera). Po zatwierdzeniu
+   wynik wraca tu jako JPEG i trafia do rodzica jako IBrowserFile. *@
+
+@if (isOpen)
+{
+    <div class="ic-backdrop" id="icRoot" role="dialog" aria-modal="true" aria-label="Kadrowanie zdjęcia">
+        <div class="ic-dialog">
+            <header class="ic-head">
+                <div>
+                    <span class="ic-eyebrow">KADROWANIE ZDJĘCIA</span>
+                    <h3>@title</h3>
+                    @if (!string.IsNullOrWhiteSpace(progress))
+                    {
+                        <small>@progress</small>
+                    }
+                </div>
+
+                <button type="button" class="ic-close" aria-label="Anuluj" disabled="@busy" @onclick="CancelAsync">×</button>
+            </header>
+
+            <div class="ic-body">
+                <div class="ic-stage-holder" id="icStageHolder">
+                    <canvas id="icCanvas" class="ic-canvas"></canvas>
+                    <div class="ic-status" id="icStatus">Wczytywanie zdjęcia…</div>
+                </div>
+
+                <div class="ic-controls">
+                    <div class="ic-field">
+                        <label for="icZoom">Rozmiar zdjęcia <span id="icZoomVal">100%</span></label>
+                        <input type="range" id="icZoom" min="100" max="400" step="1" value="100" />
+                    </div>
+
+                    <div class="ic-field">
+                        <label for="icPanX">Przesunięcie w poziomie <span id="icPanXVal">0</span></label>
+                        <input type="range" id="icPanX" min="-100" max="100" step="1" value="0" />
+                    </div>
+
+                    <div class="ic-field">
+                        <label for="icPanY">Przesunięcie w pionie <span id="icPanYVal">0</span></label>
+                        <input type="range" id="icPanY" min="-100" max="100" step="1" value="0" />
+                    </div>
+
+                    <div>
+                        <span class="ic-label">Proporcje kadru</span>
+                        <div class="ic-chips">
+                            <button type="button" class="ic-chip" data-ic-aspect="0">Oryginalne</button>
+                            <button type="button" class="ic-chip" data-ic-aspect="1.7778">16:9</button>
+                            <button type="button" class="ic-chip" data-ic-aspect="1.3333">4:3</button>
+                            <button type="button" class="ic-chip" data-ic-aspect="1">1:1</button>
+                            <button type="button" class="ic-chip" data-ic-aspect="0.75">3:4</button>
+                        </div>
+                    </div>
+
+                    <div class="ic-actions">
+                        <button type="button" class="af-button af-button--secondary" data-ic-center>Wyśrodkuj</button>
+                        <button type="button" class="af-button af-button--secondary" data-ic-reset>Przywróć ustawienia</button>
+                    </div>
+
+                    <span class="ic-info" id="icInfo"></span>
+                    <p class="ic-hint">Możesz też przeciągać zdjęcie myszą i powiększać je kółkiem.</p>
+                </div>
+            </div>
+
+            <footer class="ic-foot">
+                <button type="button" class="af-button af-button--secondary" disabled="@busy" @onclick="UseOriginalAsync">
+                    Bez kadrowania
+                </button>
+
+                <div class="ic-foot__group">
+                    <button type="button" class="af-button af-button--secondary" disabled="@busy" @onclick="CancelAsync">
+                        Anuluj
+                    </button>
+                    <button type="button" class="af-button af-button--primary" disabled="@busy" @onclick="ApplyAsync">
+                        @(busy ? "Zapisywanie..." : "Zastosuj kadr")
+                    </button>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(error))
+                {
+                    <p class="ic-error">@error</p>
+                }
+            </footer>
+        </div>
+    </div>
+}
+
+@code {
+    private const long MaxOutputBytes = 10 * 1024 * 1024;
+
+    /// <summary>Wywoływane z wykadrowanym zdjęciem albo (po „Bez kadrowania”) z oryginałem.</summary>
+    [Parameter] public EventCallback<IBrowserFile> OnCropped { get; set; }
+
+    /// <summary>Wywoływane po anulowaniu okna.</summary>
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private bool isOpen;
+    private bool pendingInit;
+    private bool busy;
+    private string title = "Zdjęcie";
+    private string? progress;
+    private string? error;
+    private string? dataUrl;
+    private IBrowserFile? source;
+
+    public async Task OpenAsync(IBrowserFile file, string heading, string? progressText = null)
+    {
+        dataUrl = await fileService.GetPreviewAsync(file);
+
+        source = file;
+        title = heading;
+        progress = progressText;
+        error = null;
+        busy = false;
+        isOpen = true;
+        pendingInit = true;
+
+        StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!pendingInit)
+            return;
+
+        pendingInit = false;
+        var url = dataUrl;
+        dataUrl = null;
+
+        if (url is null)
+            return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("imageCropper.init", url);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    private async Task ApplyAsync()
+    {
+        if (busy || source is null)
+            return;
+
+        busy = true;
+        error = null;
+
+        try
+        {
+            var reference = await JS.InvokeAsync<IJSStreamReference?>("imageCropper.export");
+
+            if (reference is null)
+            {
+                error = "Zdjęcie nie jest jeszcze gotowe do kadrowania.";
+                busy = false;
+                return;
+            }
+
+            byte[] bytes;
+
+            await using (var stream = await reference.OpenReadStreamAsync(MaxOutputBytes))
+            using (var memory = new MemoryStream())
+            {
+                await stream.CopyToAsync(memory);
+                bytes = memory.ToArray();
+            }
+
+            var thumbnail = await JS.InvokeAsync<string?>("imageCropper.thumbnail");
+
+            var baseName = Path.GetFileNameWithoutExtension(source.Name);
+
+            if (string.IsNullOrWhiteSpace(baseName))
+                baseName = "zdjecie";
+
+            var result = new CroppedBrowserFile($"{baseName}.jpg", bytes)
+            {
+                Thumbnail = thumbnail
+            };
+
+            await CloseAsync();
+            await OnCropped.InvokeAsync(result);
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Błąd kadrowania zdjęcia: {ex}");
+            error = "Nie udało się wykadrować zdjęcia. Spróbuj ponownie albo wybierz „Bez kadrowania”.";
+            busy = false;
+        }
+    }
+
+    private async Task UseOriginalAsync()
+    {
+        var original = source;
+
+        if (busy || original is null)
+            return;
+
+        await CloseAsync();
+        await OnCropped.InvokeAsync(original);
+    }
+
+    private async Task CancelAsync()
+    {
+        if (busy)
+            return;
+
+        await CloseAsync();
+        await OnCancelled.InvokeAsync();
+    }
+
+    private async Task CloseAsync()
+    {
+        isOpen = false;
+        busy = false;
+        source = null;
+        dataUrl = null;
+        pendingInit = false;
+
+        await DisposeCropperAsync();
+        StateHasChanged();
+    }
+
+    private async Task DisposeCropperAsync()
+    {
+        try
+        {
+            await JS.InvokeVoidAsync("imageCropper.dispose");
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (isOpen)
+            await DisposeCropperAsync();
+    }
+}

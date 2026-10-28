@@ -124,7 +124,7 @@
                                            accept="image/*"
                                            disabled="@isSaving" />
                             </label>
-                            <small>Ustaw kursor w wybranym miejscu. Maksymalny rozmiar zdjęcia: 5 MB.</small>
+                            <small>Ustaw kursor w wybranym miejscu. Maksymalny rozmiar zdjęcia: 5 MB. Przed dodaniem możesz je wykadrować.</small>
                         </div>
 
                         <textarea id="articleText"
@@ -189,6 +189,7 @@
 
                     <p class="af-cover__hint">
                         Okładka widoczna na kafelku artykułu i na początku tekstu.
+                        Po wybraniu zdjęcia możesz je wykadrować.
                         @if (EditingArticle is not null)
                         {
                             <span>Zostaw bez zmian, aby zachować obecne zdjęcie.</span>
@@ -246,7 +247,7 @@
                 <span class="af-dropzone__icon">＋</span>
                 <span class="af-dropzone__text">
                     <strong>Wybierz zdjęcia do galerii</strong>
-                    <small>Możesz zaznaczyć kilka plików jednocześnie.</small>
+                    <small>Możesz zaznaczyć kilka plików jednocześnie. Każde możesz wykadrować.</small>
                 </span>
                 <InputFile OnChange="ChooseGalleryPhotos" accept="image/*" multiple />
             </label>
@@ -363,6 +364,10 @@
             </button>
         </footer>
     </form>
+
+    <ImageCropper @ref="cropper"
+                  OnCropped="OnCropCompletedAsync"
+                  OnCancelled="OnCropCancelledAsync" />
 </div>
 
 @code {
@@ -376,6 +381,14 @@
 
     [Parameter]
     public EventCallback OnSaved { get; set; }
+
+    private enum CropTarget { Cover, Inline, Gallery }
+
+    private ImageCropper? cropper;
+    private CropTarget cropTarget;
+    private readonly Queue<IBrowserFile> galleryCropQueue = new();
+    private int galleryCropTotal;
+    private int galleryCropIndex;
 
     private FormTab activeTab = FormTab.Info;
 
@@ -538,6 +551,12 @@
             return;
         }
 
+        cropTarget = CropTarget.Cover;
+        await OpenCropperAsync(chosen, "Zdjęcie główne", null);
+    }
+
+    private async Task ApplyCoverAsync(IBrowserFile chosen)
+    {
         try
         {
             previewImage = await fileService.GetPreviewAsync(chosen);
@@ -567,6 +586,14 @@
             errorMessage = "Zdjęcie w treści może mieć maksymalnie 5 MB.";
             return;
         }
+
+        cropTarget = CropTarget.Inline;
+        await OpenCropperAsync(chosen, "Zdjęcie w treści artykułu", null);
+    }
+
+    private async Task InsertInlinePhotoAsync(IBrowserFile chosen)
+    {
+        errorMessage = null;
 
         try
         {
@@ -648,27 +675,112 @@
             return;
         }
 
-        galleryFiles.AddRange(chosen);
+        // Każde wybrane zdjęcie przechodzi po kolei przez okno kadrowania.
+        galleryCropQueue.Clear();
 
-        foreach (var galleryFile in galleryFiles)
+        foreach (var galleryFile in chosen)
+            galleryCropQueue.Enqueue(galleryFile);
+
+        galleryCropTotal = galleryCropQueue.Count;
+        galleryCropIndex = 0;
+
+        await NextGalleryCropAsync();
+    }
+
+    private async Task NextGalleryCropAsync()
+    {
+        if (galleryCropQueue.Count == 0)
+            return;
+
+        var next = galleryCropQueue.Dequeue();
+        galleryCropIndex++;
+        cropTarget = CropTarget.Gallery;
+
+        await OpenCropperAsync(
+            next,
+            "Zdjęcie do galerii",
+            galleryCropTotal > 1 ? $"Zdjęcie {galleryCropIndex} z {galleryCropTotal}" : null);
+    }
+
+    private async Task AddGalleryFileAsync(IBrowserFile galleryFile)
+    {
+        galleryFiles.Add(galleryFile);
+
+        var thumb = await MakeThumbnailAsync(galleryFile);
+
+        if (thumb is not null)
+            thumbnails[galleryFile] = thumb;
+
+        await NextGalleryCropAsync();
+    }
+
+    private static async Task<string?> MakeThumbnailAsync(IBrowserFile galleryFile)
+    {
+        if (galleryFile is CroppedBrowserFile cropped)
+            return cropped.Thumbnail;
+
+        try
         {
-            try
-            {
-                var resized = await galleryFile.RequestImageFileAsync("image/jpeg", 360, 270);
+            var resized = await galleryFile.RequestImageFileAsync("image/jpeg", 360, 270);
 
-                using var stream = resized.OpenReadStream(1024 * 1024);
-                using var memory = new MemoryStream();
+            using var stream = resized.OpenReadStream(1024 * 1024);
+            using var memory = new MemoryStream();
 
-                await stream.CopyToAsync(memory);
+            await stream.CopyToAsync(memory);
 
-                thumbnails[galleryFile] =
-                    $"data:image/jpeg;base64,{Convert.ToBase64String(memory.ToArray())}";
-            }
-            catch
-            {
-                // Brak miniatury nie blokuje dodania zdjęcia.
-            }
+            return $"data:image/jpeg;base64,{Convert.ToBase64String(memory.ToArray())}";
         }
+        catch
+        {
+            // Brak miniatury nie blokuje dodania zdjęcia.
+            return null;
+        }
+    }
+
+    // ---------- kadrowanie ----------
+
+    private async Task OpenCropperAsync(IBrowserFile chosen, string heading, string? progressText)
+    {
+        try
+        {
+            if (cropper is null)
+                throw new InvalidOperationException("Okno kadrowania nie jest gotowe.");
+
+            await cropper.OpenAsync(chosen, heading, progressText);
+        }
+        catch (Exception ex)
+        {
+            // Gdy kadrowanie się nie uruchomi, zdjęcie trafia dalej bez zmian.
+            Console.Error.WriteLine($"Nie udało się otworzyć kadrowania: {ex}");
+            await OnCropCompletedAsync(chosen);
+        }
+    }
+
+    private async Task OnCropCompletedAsync(IBrowserFile result)
+    {
+        switch (cropTarget)
+        {
+            case CropTarget.Cover:
+                await ApplyCoverAsync(result);
+                break;
+
+            case CropTarget.Inline:
+                await InsertInlinePhotoAsync(result);
+                break;
+
+            case CropTarget.Gallery:
+                await AddGalleryFileAsync(result);
+                break;
+        }
+    }
+
+    private Task OnCropCancelledAsync()
+    {
+        // Anulowanie w galerii przerywa kolejkę; zdjęcia już dodane zostają.
+        if (cropTarget == CropTarget.Gallery)
+            galleryCropQueue.Clear();
+
+        return Task.CompletedTask;
     }
 
     private void RemoveSelectedGalleryFile(IBrowserFile galleryFile)
